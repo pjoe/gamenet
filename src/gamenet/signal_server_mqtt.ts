@@ -1,7 +1,10 @@
 import mqtt from "mqtt";
 import { SignalServer } from "./signal_server";
 
-export function createMqttSignalServer(brokerUrl: string): SignalServer {
+export function createMqttSignalServer(
+  brokerUrl: string,
+  topicPrefix = "pjoe.gamenet/"
+): SignalServer {
   let client: mqtt.MqttClient | null = null;
   let currentTopic: string | null = null;
   let messageHandler: ((message: string) => void) | null = null;
@@ -13,7 +16,9 @@ export function createMqttSignalServer(brokerUrl: string): SignalServer {
 
     if (!client) {
       console.debug("Connecting to MQTT broker at:", brokerUrl);
-      client = mqtt.connect(brokerUrl);
+      client = mqtt.connect(brokerUrl, {
+        reconnectPeriod: 5000,
+      });
 
       client.on("error", (err) => {
         throw new Error(`MQTT connection error: ${err.message}`);
@@ -41,7 +46,7 @@ export function createMqttSignalServer(brokerUrl: string): SignalServer {
       mqttClient.unsubscribe(currentTopic);
     }
 
-    currentTopic = `gamenet/${to}`;
+    currentTopic = topicPrefix + to;
     messageHandler = onMessage;
 
     mqttClient.subscribe(currentTopic, (err) => {
@@ -61,7 +66,7 @@ export function createMqttSignalServer(brokerUrl: string): SignalServer {
     data?: any
   ): Promise<void> => {
     const mqttClient = ensureConnected();
-    const topic = `gamenet/${to}`;
+    const topic = topicPrefix + to;
     const message = JSON.stringify({ from, to, t, data });
 
     return new Promise((resolve, reject) => {
