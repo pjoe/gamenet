@@ -42,18 +42,20 @@ function Join() {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Join a Game</h1>
+        <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-8 transition-colors duration-200">
+          Join a Game
+        </h1>
 
         {["idle", "joining"].includes(joinState) && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <p className="text-gray-600 mb-6">
+          <div className="bg-[var(--color-bg-primary)] rounded-lg shadow p-8 transition-colors duration-200">
+            <p className="text-[var(--color-text-secondary)] mb-6 transition-colors duration-200">
               Enter the game code provided by the host to join the session.
             </p>
             <form onSubmit={handleJoinGame}>
               <div className="mb-6">
                 <label
                   htmlFor="gameCode"
-                  className="block text-sm font-medium text-gray-700 mb-2"
+                  className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2 transition-colors duration-200"
                 >
                   Game Code
                 </label>
@@ -67,7 +69,7 @@ function Join() {
                   }
                   placeholder="Enter 6-digit code"
                   maxLength={6}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-lg"
+                  className="w-full px-4 py-3 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] transition-colors duration-200"
                   required
                 />
               </div>
@@ -82,12 +84,12 @@ function Join() {
           </div>
         )}
         {["joined"].includes(joinState) && (
-          <div className="bg-white rounded-lg shadow p-8">
+          <div className="bg-[var(--color-bg-primary)] rounded-lg shadow p-8 transition-colors duration-200">
             <div className="text-center">
               <div className="mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-[var(--color-success-bg)] rounded-full mb-4 transition-colors duration-200">
                   <svg
-                    className="w-8 h-8 text-green-600"
+                    className="w-8 h-8 text-[var(--color-success-text)] transition-colors duration-200"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -100,17 +102,17 @@ function Join() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                <h2 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-2 transition-colors duration-200">
                   Successfully Joined!
                 </h2>
-                <p className="text-gray-600">
+                <p className="text-[var(--color-text-secondary)] transition-colors duration-200">
                   Connected to game:{gameClient?.serverId} as{" "}
                   {gameClient?.clientId}
                   <span className="font-mono font-semibold">{serverId}</span>
                 </p>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800 text-sm">
+              <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-lg p-4 transition-colors duration-200">
+                <p className="text-[var(--color-info-text)] text-sm transition-colors duration-200">
                   Waiting for host to start the game...
                 </p>
               </div>

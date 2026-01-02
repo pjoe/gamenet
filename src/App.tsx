@@ -1,34 +1,59 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import Home from "./pages/Home";
 import Host from "./pages/Host";
 import Join from "./pages/Join";
+import ThemeToggle from "./components/ThemeToggle";
 
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow-sm">
+      <div className="min-h-screen bg-[var(--color-bg-secondary)] transition-colors duration-200">
+        <nav className="bg-[var(--color-bg-primary)] shadow-sm transition-colors duration-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex space-x-8">
-                <Link
+                <NavLink
                   to="/"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 border-b-2 border-transparent hover:border-gray-300"
+                  end
+                  className={({ isActive }) =>
+                    `inline-flex items-center px-1 pt-1 text-sm font-medium text-[var(--color-text-primary)] border-b-4 transition-colors duration-200 ${
+                      isActive
+                        ? "border-[var(--color-border-active)]"
+                        : "border-transparent hover:border-[var(--color-border-active)]"
+                    }`
+                  }
                 >
                   Home
-                </Link>
-                <Link
+                </NavLink>
+                <NavLink
                   to="/host"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 border-b-2 border-transparent hover:border-gray-300"
+                  end
+                  className={({ isActive }) =>
+                    `inline-flex items-center px-1 pt-1 text-sm font-medium text-[var(--color-text-primary)] border-b-4 transition-colors duration-200 ${
+                      isActive
+                        ? "border-[var(--color-border-active)]"
+                        : "border-transparent hover:border-[var(--color-border-active)]"
+                    }`
+                  }
                 >
                   Host
-                </Link>
-                <Link
+                </NavLink>
+                <NavLink
                   to="/join"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 border-b-2 border-transparent hover:border-gray-300"
+                  end
+                  className={({ isActive }) =>
+                    `inline-flex items-center px-1 pt-1 text-sm font-medium text-[var(--color-text-primary)] border-b-4 transition-colors duration-200 ${
+                      isActive
+                        ? "border-[var(--color-border-active)]"
+                        : "border-transparent hover:border-[var(--color-border-active)]"
+                    }`
+                  }
                 >
                   Join
-                </Link>
+                </NavLink>
+              </div>
+              <div className="flex items-center">
+                <ThemeToggle />
               </div>
             </div>
           </div>

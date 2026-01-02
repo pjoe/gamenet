@@ -4,14 +4,16 @@ function Home() {
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+        <h1 className="text-4xl font-bold text-[var(--color-text-primary)] mb-4 transition-colors duration-200">
           Welcome to GameNet
         </h1>
-        <p className="text-xl text-gray-600 mb-8">
+        <p className="text-xl text-[var(--color-text-secondary)] mb-8 transition-colors duration-200">
           Multiplayer gaming made simple
         </p>
-        <div className="bg-white rounded-lg shadow p-6 max-w-md mx-auto">
-          <p className="text-sm text-gray-500">GameNet Library v{version}</p>
+        <div className="bg-[var(--color-bg-primary)] rounded-lg shadow p-6 max-w-md mx-auto transition-colors duration-200">
+          <p className="text-sm text-[var(--color-text-secondary)] transition-colors duration-200">
+            GameNet Library v{version}
+          </p>
           <div className="mt-6 space-y-4">
             <a
               href="/host"
