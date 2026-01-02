@@ -12,6 +12,7 @@
   "dependencies": {
     "@types/ws": "^8.18.1",
     "mitt": "^3.0.1",
+    "mqtt": "^5.14.1",
     "nanoid": "^5.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -4,10 +4,11 @@
  */
 
 import { selectSignalServer } from "./signal_server";
-import { createLocalSignalServer } from "./signal_server_local";
+import { createMqttSignalServer } from "./signal_server_mqtt";
 
 export * from "./game_server";
 export * from "./game_client";
 
 // default signal serve
-selectSignalServer(createLocalSignalServer());
+selectSignalServer(createMqttSignalServer("ws://localhost:9001"));
+//selectSignalServer(createLocalSignalServer());
