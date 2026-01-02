@@ -1,12 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Channel, GameServer, hostGame } from "@gamenet";
 
 function Host() {
-  const [gameCode, setGameCode] = useState<string>("");
   const [isHosting, setIsHosting] = useState(false);
+  const [messages, setMessages] = useState<string[]>([]);
+  const [clients, setClients] = useState<Channel[]>([]);
+  const [gameServer, setGameServer] = useState<GameServer>();
 
-  const handleHostGame = () => {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setGameCode(code);
+  useEffect(() => {
+    return () => {
+      gameServer?.dispose();
+    };
+  }, [gameServer]);
+
+  const handleHostGame = async () => {
+    const server = await hostGame();
+    server.onConnection((channel) => {
+      setClients((clients) => [channel, ...clients]);
+      channel.emit("msg", "Welcome to the server!");
+      channel.onDisconnect((clientId) => {
+        setClients((clients) => clients.filter((c) => c.clientId !== clientId));
+      });
+      channel.on("*", (from, type, data) =>
+        setMessages((msgs) => [
+          ...msgs,
+          `${from}: ${type}: ${JSON.stringify(data)}`,
+        ])
+      );
+      // update pings
+      const interval = setInterval(() => {
+        setClients((clients) => [...clients]);
+      }, 1000);
+    });
+    setGameServer(server);
     setIsHosting(true);
   };
 
@@ -35,7 +61,7 @@ function Host() {
               </h2>
               <div className="bg-gray-100 rounded-lg p-6 mb-6">
                 <p className="text-4xl font-mono font-bold text-blue-600">
-                  {gameCode}
+                  {gameServer?.serverId}
                 </p>
               </div>
               <p className="text-gray-600 mb-4">

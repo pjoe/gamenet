@@ -3,7 +3,7 @@ import type { SignalServer } from "./signal_server";
 interface Message {
   from: string;
   to: string;
-  type: string;
+  t: string;
   data?: any;
 }
 
@@ -20,10 +20,32 @@ export function createLocalSignalServer(
     data?: any
   ): Promise<void> => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
+      await new Promise<void>((resolve, reject) => {
+        if (!ws) {
+          ws = new WebSocket(url);
+          ws.addEventListener("open", () => {
+            console.debug("WebSocket connected");
+            ws?.send(JSON.stringify({ t: "register", from }));
+            resolve();
+          });
+        } else {
+          ws.addEventListener("open", () => {
+            console.debug("WebSocket connected now ");
+            resolve();
+          });
+        }
+
+        ws.addEventListener("error", (error) => {
+          console.error("WebSocket error:", error);
+          reject(error);
+        });
+      });
+    }
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket is not connected");
     }
 
-    const message: Message = { from, to, type: t, data };
+    const message: Message = { from, to, t, data };
     ws.send(JSON.stringify(message));
   };
 
@@ -32,25 +54,26 @@ export function createLocalSignalServer(
     onMessage: (message: string) => void
   ): void => {
     messageHandler = onMessage;
-    ws = new WebSocket(url);
+    if (!ws) {
+      ws = new WebSocket(url);
 
-    ws.onopen = () => {
-      ws?.send(JSON.stringify({ type: "register", id: to }));
-    };
+      ws.addEventListener("open", () => {
+        ws?.send(JSON.stringify({ t: "register", from: to }));
+      });
+    }
 
-    ws.onmessage = (event) => {
+    ws.addEventListener("message", (event) => {
       if (messageHandler) {
         messageHandler(event.data);
       }
-    };
+    });
 
-    ws.onerror = (error) => {
+    ws.addEventListener("error", (error) => {
       console.error("WebSocket error:", error);
-    };
-
-    ws.onclose = () => {
+    });
+    ws.addEventListener("close", () => {
       console.log("WebSocket connection closed");
-    };
+    });
   };
 
   const unsubscribe = (): void => {

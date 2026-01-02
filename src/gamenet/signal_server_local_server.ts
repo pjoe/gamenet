@@ -11,14 +11,17 @@ const startServer = (port: number = 8080) => {
     ws.on("message", (data) => {
       const message = JSON.parse(data.toString());
 
-      if (message.type === "register") {
-        clientId = message.id;
+      if (message.t === "register") {
+        clientId = message.from;
         if (!clientId) return;
         clients.set(clientId, ws);
         console.log(`Client registered: ${clientId}`);
         return;
       }
 
+      console.log(
+        `Message from ${message.from} to ${message.to}: ${message.t}`
+      );
       const recipient = clients.get(message.to);
       if (recipient && recipient.readyState === 1) {
         recipient.send(JSON.stringify(message));

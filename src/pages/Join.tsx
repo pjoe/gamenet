@@ -1,13 +1,41 @@
-import { useState } from "react";
+import { GameClient, joinGame } from "@gamenet";
+import { useEffect, useState } from "react";
+
+interface JoinProps {
+  serverId: string;
+  onStateChanged?: (newState: JoinState) => void;
+}
+
+type JoinState = "idle" | "joining" | "joined" | "error";
 
 function Join() {
-  const [gameCode, setGameCode] = useState("");
-  const [isJoined, setIsJoined] = useState(false);
+  const [serverId, setServerId] = useState("");
+  const [joinState, setJoinState] = useState<JoinState>("idle");
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<string[]>([]);
+  const [gameClient, setGameClient] = useState<GameClient>();
+
+  useEffect(() => {
+    return () => {
+      gameClient?.dispose();
+    };
+  }, [gameClient]);
 
   const handleJoinGame = (e: React.FormEvent) => {
     e.preventDefault();
-    if (gameCode.trim()) {
-      setIsJoined(true);
+    if (serverId.trim()) {
+      (async () => {
+        const client = await joinGame({ serverId: serverId });
+        client.onConnected(() => {
+          client.onDisconnected(() => setJoinState("idle"));
+          setJoinState("joined");
+          client.on("*", (type, data) =>
+            setMessages((msgs) => [...msgs, `${type}: ${JSON.stringify(data)}`])
+          );
+        });
+        setGameClient(client);
+      })();
+      setJoinState("joining");
     }
   };
 
@@ -16,7 +44,7 @@ function Join() {
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Join a Game</h1>
 
-        {!isJoined ? (
+        {["idle", "joining"].includes(joinState) && (
           <div className="bg-white rounded-lg shadow p-8">
             <p className="text-gray-600 mb-6">
               Enter the game code provided by the host to join the session.
@@ -32,9 +60,12 @@ function Join() {
                 <input
                   type="text"
                   id="gameCode"
-                  value={gameCode}
-                  onChange={(e) => setGameCode(e.target.value.toUpperCase())}
-                  placeholder="Enter 6-character code"
+                  disabled={joinState !== "idle"}
+                  value={serverId}
+                  onChange={(e) =>
+                    setServerId(e.target.value.replace(/[^0-9]/g, ""))
+                  }
+                  placeholder="Enter 6-digit code"
                   maxLength={6}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-lg"
                   required
@@ -42,13 +73,15 @@ function Join() {
               </div>
               <button
                 type="submit"
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition"
+                disabled={joinState !== "idle" || serverId.length < 1}
+                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:hover:bg-green-400 text-white font-medium py-3 px-4 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 disabled:focus:ring-0"
               >
                 Join Game
               </button>
             </form>
           </div>
-        ) : (
+        )}
+        {["joined"].includes(joinState) && (
           <div className="bg-white rounded-lg shadow p-8">
             <div className="text-center">
               <div className="mb-6">
@@ -71,8 +104,9 @@ function Join() {
                   Successfully Joined!
                 </h2>
                 <p className="text-gray-600">
-                  Connected to game:{" "}
-                  <span className="font-mono font-semibold">{gameCode}</span>
+                  Connected to game:{gameClient?.serverId} as{" "}
+                  {gameClient?.clientId}
+                  <span className="font-mono font-semibold">{serverId}</span>
                 </p>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
