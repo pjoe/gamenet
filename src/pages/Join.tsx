@@ -10,6 +10,7 @@ type JoinState = "idle" | "joining" | "joined" | "error";
 
 function Join() {
   const [serverId, setServerId] = useState("");
+  const [extraLatency, setExtraLatency] = useState(0);
   const [joinState, setJoinState] = useState<JoinState>("idle");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<string[]>([]);
@@ -25,7 +26,10 @@ function Join() {
     e.preventDefault();
     if (serverId.trim()) {
       (async () => {
-        const client = await joinGame({ serverId: serverId });
+        const client = await joinGame({
+          serverId: serverId,
+          extraLatency: extraLatency,
+        });
         client.onConnected(() => {
           client.onDisconnected(() => setJoinState("idle"));
           setJoinState("joined");
@@ -73,6 +77,33 @@ function Join() {
                   required
                 />
               </div>
+              <div className="mb-6">
+                <label
+                  htmlFor="extraLatency"
+                  className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2 transition-colors duration-200"
+                >
+                  Extra Latency (ms)
+                </label>
+                <input
+                  type="number"
+                  id="extraLatency"
+                  value={extraLatency}
+                  onChange={(e) => {
+                    const newLatency = Math.min(
+                      2000,
+                      Math.max(0, parseInt(e.target.value) || 0)
+                    );
+                    setExtraLatency(newLatency);
+                    if (gameClient) {
+                      gameClient.extraLatency = newLatency;
+                    }
+                  }}
+                  placeholder="0"
+                  min="0"
+                  max="2000"
+                  className="w-full px-4 py-3 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] transition-colors duration-200"
+                />
+              </div>
               <button
                 type="submit"
                 disabled={joinState !== "idle" || serverId.length < 1}
@@ -106,9 +137,19 @@ function Join() {
                   Successfully Joined!
                 </h2>
                 <p className="text-[var(--color-text-secondary)] transition-colors duration-200">
-                  Connected to game:{gameClient?.serverId} as{" "}
-                  {gameClient?.clientId}
-                  <span className="font-mono font-semibold">{serverId}</span>
+                  Connected to game:{" "}
+                  <span className="font-mono font-semibold">
+                    {gameClient?.serverId}
+                  </span>{" "}
+                  as{" "}
+                  <span className="font-mono font-semibold">
+                    {gameClient?.clientId}
+                  </span>
+                  <br />
+                  Extra latency:{" "}
+                  <span className="font-mono font-semibold">
+                    {gameClient?.extraLatency}ms
+                  </span>
                 </p>
               </div>
               <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-lg p-4 transition-colors duration-200">
@@ -116,6 +157,33 @@ function Join() {
                   Waiting for host to start the game...
                 </p>
               </div>
+            </div>
+            <div className="mt-6">
+              <label
+                htmlFor="extraLatencyJoined"
+                className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2 transition-colors duration-200"
+              >
+                Extra Latency (ms)
+              </label>
+              <input
+                type="number"
+                id="extraLatencyJoined"
+                value={extraLatency}
+                onChange={(e) => {
+                  const newLatency = Math.min(
+                    2000,
+                    Math.max(0, parseInt(e.target.value) || 0)
+                  );
+                  setExtraLatency(newLatency);
+                  if (gameClient) {
+                    gameClient.extraLatency = newLatency;
+                  }
+                }}
+                placeholder="0"
+                min="0"
+                max="2000"
+                className="w-full px-4 py-3 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] transition-colors duration-200"
+              />
             </div>
           </div>
         )}

@@ -9,6 +9,7 @@ type Events = Record<string, any>;
 export interface GameClient {
   serverId: string;
   clientId: string;
+  extraLatency: number;
   peerConn?: PeerConn;
   on: Emitter<Events>["on"];
   emit: (ev: string, e: any, options?: EmitOptions) => void;
@@ -26,9 +27,11 @@ type signalMsg = {
 
 interface joinGameArgs {
   serverId: string;
+  extraLatency?: number;
 }
 
 export async function joinGame(args: joinGameArgs): Promise<GameClient> {
+  const extraLatency = args.extraLatency ?? 0;
   const clientId = createClientChannelId();
   const signalServer = getSignalServer();
   const emitter = mitt<Events>();
@@ -37,6 +40,7 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
   const gameClient: GameClient = {
     serverId: args.serverId,
     clientId,
+    extraLatency,
     on(
       type: string,
       handler: ((type: string, data: any) => void) | ((data: any) => void)
@@ -50,9 +54,26 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
         emitter.on(type, (data) => (handler as (data: any) => void)(data));
       }
     },
-    emit: (t, data, options?) =>
-      gameClient.peerConn?.sendJSON({ t, data }, options),
-    emitRaw: (data, options?) => gameClient.peerConn?.sendRaw(data, options),
+    emit(t, data, options?) {
+      if (this.extraLatency > 0) {
+        setTimeout(
+          () => gameClient.peerConn?.sendJSON({ t, data }, options),
+          this.extraLatency * 0.5
+        );
+      } else {
+        gameClient.peerConn?.sendJSON({ t, data }, options);
+      }
+    },
+    emitRaw(data, options?) {
+      if (this.extraLatency > 0) {
+        setTimeout(
+          () => gameClient.peerConn?.sendRaw(data, options),
+          this.extraLatency * 0.5
+        );
+      } else {
+        gameClient.peerConn?.sendRaw(data, options);
+      }
+    },
     onConnected: (handler) => {
       onConnectedHandler = handler;
     },
@@ -71,7 +92,14 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
     if (!peer) return;
     console.debug("dcMsg", peer.remoteId, dc.label, ev.data);
     const json = JSON.parse(ev.data);
-    emitter.emit(json.t, json.data);
+    if (gameClient.extraLatency > 0) {
+      setTimeout(
+        () => emitter.emit(json.t, json.data),
+        gameClient.extraLatency * 0.5
+      );
+    } else {
+      emitter.emit(json.t, json.data);
+    }
   };
   console.debug("Subscribing to channel:", clientId);
   signalServer.subscribe(clientId, (message) => {
