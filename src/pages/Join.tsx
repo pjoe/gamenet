@@ -1,19 +1,14 @@
 import { GameClient, joinGame } from "@gamenet";
 import { useEffect, useState } from "react";
 
-interface JoinProps {
-  serverId: string;
-  onStateChanged?: (newState: JoinState) => void;
-}
-
 type JoinState = "idle" | "joining" | "joined" | "error";
 
 function Join() {
   const [serverId, setServerId] = useState("");
   const [extraLatency, setExtraLatency] = useState(0);
   const [joinState, setJoinState] = useState<JoinState>("idle");
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<string[]>([]);
+  const [_message, _setMessage] = useState("");
+  const [_messages, setMessages] = useState<string[]>([]);
   const [gameClient, setGameClient] = useState<GameClient>();
 
   useEffect(() => {

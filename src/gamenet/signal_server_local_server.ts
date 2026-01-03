@@ -1,9 +1,9 @@
 // Server-side implementation (run with Node.js)
-import { WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 
 const startServer = (port: number = 8080) => {
   const wss = new WebSocketServer({ port });
-  const clients = new Map<string, any>();
+  const clients = new Map<string, WebSocket>();
 
   wss.on("connection", (ws) => {
     let clientId: string | null = null;

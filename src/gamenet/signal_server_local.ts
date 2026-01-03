@@ -4,7 +4,7 @@ interface Message {
   from: string;
   to: string;
   t: string;
-  data?: any;
+  data?: unknown;
 }
 
 export function createLocalSignalServer(
@@ -17,7 +17,7 @@ export function createLocalSignalServer(
     from: string,
     to: string,
     t: string,
-    data?: any
+    data?: unknown
   ): Promise<void> => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       await new Promise<void>((resolve, reject) => {

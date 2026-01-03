@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
 import { Channel, GameServer, hostGame } from "@gamenet";
+import { useEffect, useState } from "react";
 
 function Host() {
   const [isHosting, setIsHosting] = useState(false);
-  const [messages, setMessages] = useState<string[]>([]);
+  const [_messages, setMessages] = useState<string[]>([]);
   const [clients, setClients] = useState<Channel[]>([]);
   const [gameServer, setGameServer] = useState<GameServer>();
 
@@ -28,7 +28,7 @@ function Host() {
         ])
       );
       // update pings
-      const interval = setInterval(() => {
+      const _interval = setInterval(() => {
         setClients((clients) => [...clients]);
       }, 1000);
     });

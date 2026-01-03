@@ -111,9 +111,9 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
         gameClient.peerConn.onConnected = (peer) => {
           console.log("Peer connected");
           signalServer.unsubscribe();
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+           
           peer.dc!.onmessage = onMsg;
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+           
           peer.dcReliable!.onmessage = onMsg;
           peer.sendJSON({ t: "join" }, { reliable: true });
           // pings
@@ -121,7 +121,7 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
             gameClient.emit("pong", data);
           });
           onConnectedHandler?.();
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+           
           peer.dc!.onclose = () => {
             onDisconnectedHandler?.();
           };

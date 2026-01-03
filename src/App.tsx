@@ -1,8 +1,8 @@
-import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
+import ThemeToggle from "./components/ThemeToggle";
 import Home from "./pages/Home";
 import Host from "./pages/Host";
 import Join from "./pages/Join";
-import ThemeToggle from "./components/ThemeToggle";
 
 function App() {
   return (
