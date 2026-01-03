@@ -26,14 +26,14 @@
 
 /* Dark theme - manual override */
 :root.dark {
-  --color-bg-primary: #1f2937;
-  --color-bg-secondary: #111827;
-  --color-bg-tertiary: #374151;
+  --color-bg-primary: #1e1e1e;
+  --color-bg-secondary: #121212;
+  --color-bg-tertiary: #2a2a2a;
   --color-text-primary: #ffffff;
   --color-text-secondary: #d1d5db;
   --color-text-tertiary: #9ca3af;
-  --color-border: #374151;
-  --color-border-active: #6b7280;
+  --color-border: #404040;
+  --color-border-active: #555555;
   --color-accent-blue: #3b82f6;
   --color-accent-blue-hover: #2563eb;
   --color-success-bg: rgba(6, 95, 70, 0.2);
@@ -47,14 +47,14 @@
 /* System preference dark mode - only when not manually set */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --color-bg-primary: #1f2937;
-    --color-bg-secondary: #111827;
-    --color-bg-tertiary: #374151;
+    --color-bg-primary: #1e1e1e;
+    --color-bg-secondary: #121212;
+    --color-bg-tertiary: #2a2a2a;
     --color-text-primary: #ffffff;
     --color-text-secondary: #d1d5db;
     --color-text-tertiary: #9ca3af;
-    --color-border: #374151;
-    --color-border-active: #6b7280;
+    --color-border: #404040;
+    --color-border-active: #555555;
     --color-accent-blue: #3b82f6;
     --color-accent-blue-hover: #2563eb;
     --color-success-bg: rgba(6, 95, 70, 0.2);
