@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mitt from "mitt";
 import { createHostChannelId } from "./channel";
+import type { ClientsPingListPayload } from "./clients_ping_list";
 import {
   Adapter,
   SendOptions,
@@ -39,16 +40,6 @@ export interface GameServer {
 export interface HostGameArgs {
   serverId?: string;
   createAdapterManager?: (args: { serverId: string }) => ServerAdapterManager;
-}
-
-interface ClientsPingListEntry {
-  clientId: string;
-  pingMs: number | null;
-}
-
-interface ClientsPingListPayload {
-  ts: number;
-  clients: ClientsPingListEntry[];
 }
 
 export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {

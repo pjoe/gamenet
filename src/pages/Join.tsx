@@ -1,17 +1,11 @@
 import { GameClient, joinGame } from "@gamenet";
+import type {
+  ClientsPingListEntry,
+  ClientsPingListPayload,
+} from "@gamenet/clients_ping_list";
 import { useEffect, useState } from "react";
 
 type JoinState = "idle" | "joining" | "joined" | "error";
-
-interface ClientsPingListEntry {
-  clientId: string;
-  pingMs: number | null;
-}
-
-interface ClientsPingListPayload {
-  ts: number;
-  clients: ClientsPingListEntry[];
-}
 
 function isClientsPingListPayload(
   value: unknown

@@ -1,4 +1,8 @@
 import { createHostChannelId } from "@gamenet/channel";
+import type {
+  ClientsPingListEntry,
+  ClientsPingListPayload,
+} from "@gamenet/clients_ping_list";
 import { joinGame } from "@gamenet/game_client";
 import {
   Adapter,
@@ -9,16 +13,6 @@ import { createServerWebRTCAdapterManager } from "@gamenet/routing/adapter_webrt
 import { Message } from "@gamenet/routing/message";
 import { createRouter, Router } from "@gamenet/routing/router";
 import { useEffect, useState } from "react";
-
-interface ClientsPingListEntry {
-  clientId: string;
-  pingMs: number | null;
-}
-
-interface ClientsPingListPayload {
-  ts: number;
-  clients: ClientsPingListEntry[];
-}
 
 interface HostRuntime {
   serverId: string;
