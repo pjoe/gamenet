@@ -24,7 +24,7 @@ export function createMqttSignalServer(
         throw new Error(`MQTT connection error: ${err.message}`);
       });
 
-      client.on("message", (topic: string, payload: Buffer) => {
+      client.on("message", (_topic: string, payload: Buffer) => {
         if (messageHandler) {
           const messageStr = payload.toString();
           messageHandler(messageStr);
