@@ -153,10 +153,14 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
 
           peer.dc!.onclose = () => {
             // Clean up routing adapter
-            if (gameClient.adapter && gameClient.adapter.onClientRemove) {
-              gameClient.adapter.onClientRemove(args.serverId);
+            if (gameClient.adapter) {
+              if (gameClient.adapter.onClientRemove) {
+                gameClient.adapter.onClientRemove(args.serverId);
+              }
+              // Remove adapter from router
+              gameClient.router.adapters.delete(gameClient.adapter.id);
+              gameClient.adapter = undefined;
             }
-            gameClient.adapter = undefined;
             onDisconnectedHandler?.();
           };
         };

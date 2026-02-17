@@ -162,8 +162,13 @@ export async function hostGame(): Promise<GameServer> {
               console.debug("DataChannel closed", peer.remoteId);
               // Clean up routing adapter
               const adapter = server.adapters.get(peer.remoteId);
-              if (adapter && adapter.onClientRemove) {
-                adapter.onClientRemove(peer.remoteId);
+              if (adapter) {
+                // Remove all routes for this adapter's clients
+                if (adapter.onClientRemove) {
+                  adapter.onClientRemove(peer.remoteId);
+                }
+                // Remove adapter from router
+                server.router.adapters.delete(adapter.id);
               }
               server.adapters.delete(peer.remoteId);
               onDisconnectHandler?.(peer.remoteId);
