@@ -3,6 +3,12 @@ import mitt, { Emitter } from "mitt";
 import { createClientChannelId } from "./channel";
 import { PeerConn } from "./peer_conn";
 import { getSignalServer } from "./signal_server";
+import { createRouter, Router } from "./routing/router";
+import {
+  createWebRTCAdapter,
+  handleIncomingWebRTCMessage,
+  WebRTCAdapter,
+} from "./routing/adapter_webrtc";
 
 type EmitOptions = Parameters<PeerConn["sendJSON"]>[1];
 type Events = Record<string, any>;
@@ -11,6 +17,8 @@ export interface GameClient {
   clientId: string;
   extraLatency: number;
   peerConn?: PeerConn;
+  router: Router;
+  adapter?: WebRTCAdapter;
   on: Emitter<Events>["on"];
   emit: (ev: string, e: any, options?: EmitOptions) => void;
   emitRaw: (e: ArrayBuffer, options?: EmitOptions) => void;
@@ -34,6 +42,7 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
   const extraLatency = args.extraLatency ?? 0;
   const clientId = createClientChannelId();
   const signalServer = getSignalServer();
+  const router = createRouter(clientId);
   const emitter = mitt<Events>();
   let onConnectedHandler: () => void;
   let onDisconnectedHandler: () => void;
@@ -41,6 +50,7 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
     serverId: args.serverId,
     clientId,
     extraLatency,
+    router,
     on(
       type: string,
       handler: ((type: string, data: any) => void) | ((data: any) => void)
@@ -86,21 +96,6 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
     },
   };
   const send = signalServer.send.bind(null, clientId);
-  const onMsg = (ev: MessageEvent<any>) => {
-    const dc = ev.target as RTCDataChannel;
-    const peer = gameClient.peerConn;
-    if (!peer) return;
-    console.debug("dcMsg", peer.remoteId, dc.label, ev.data);
-    const json = JSON.parse(ev.data);
-    if (gameClient.extraLatency > 0) {
-      setTimeout(
-        () => emitter.emit(json.t, json.data),
-        gameClient.extraLatency * 0.5
-      );
-    } else {
-      emitter.emit(json.t, json.data);
-    }
-  };
   console.debug("Subscribing to channel:", clientId);
   signalServer.subscribe(clientId, (message) => {
     console.debug("Received message:", clientId, message);
@@ -112,9 +107,43 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
           console.log("Peer connected");
           signalServer.unsubscribe();
 
-          peer.dc!.onmessage = onMsg;
+          // Create WebRTC adapter for routing integration
+          const adapter = createWebRTCAdapter(clientId, args.serverId, peer);
+          gameClient.adapter = adapter;
+          gameClient.router.registerAdapter(adapter);
 
-          peer.dcReliable!.onmessage = onMsg;
+          // Modified message handler to support routing
+          const handleMessage = (ev: MessageEvent<any>) => {
+            const dc = ev.target as RTCDataChannel;
+            if (!gameClient.peerConn) return;
+            console.debug(
+              "dcMsg",
+              gameClient.peerConn.remoteId,
+              dc.label,
+              ev.data
+            );
+            const json = JSON.parse(ev.data);
+
+            // Check if this is a routing message and handle it via adapter
+            const isReliable = dc === gameClient.peerConn.dcReliable;
+            if (gameClient.adapter) {
+              handleIncomingWebRTCMessage(gameClient.adapter, json, isReliable);
+            }
+
+            // Also emit via mitt for existing non-routing behavior
+            if (gameClient.extraLatency > 0) {
+              setTimeout(
+                () => emitter.emit(json.t, json.data),
+                gameClient.extraLatency * 0.5
+              );
+            } else {
+              emitter.emit(json.t, json.data);
+            }
+          };
+
+          peer.dc!.onmessage = handleMessage;
+
+          peer.dcReliable!.onmessage = handleMessage;
           peer.sendJSON({ t: "join" }, { reliable: true });
           // pings
           emitter.on("ping", (data: { time: number }) => {
@@ -123,6 +152,11 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
           onConnectedHandler?.();
 
           peer.dc!.onclose = () => {
+            // Clean up routing adapter
+            if (gameClient.adapter && gameClient.adapter.onClientRemove) {
+              gameClient.adapter.onClientRemove(args.serverId);
+            }
+            gameClient.adapter = undefined;
             onDisconnectedHandler?.();
           };
         };

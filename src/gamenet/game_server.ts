@@ -3,6 +3,12 @@ import mitt from "mitt";
 import { createHostChannelId } from "./channel";
 import { PeerConn } from "./peer_conn";
 import { getSignalServer } from "./signal_server";
+import { createRouter, Router } from "./routing/router";
+import {
+  createWebRTCAdapter,
+  handleIncomingWebRTCMessage,
+  WebRTCAdapter,
+} from "./routing/adapter_webrtc";
 
 type EmitOptions = Parameters<PeerConn["sendJSON"]>[1];
 
@@ -25,6 +31,8 @@ export interface GameServer {
   serverId: string;
   peerConns: Map<string, PeerConn>;
   dcMap: Map<RTCDataChannel, PeerConn>;
+  router: Router;
+  adapters: Map<string, WebRTCAdapter>;
   onConnection: (handler: (channel: Channel) => void) => void;
   dispose: () => void;
 }
@@ -39,10 +47,13 @@ export async function hostGame(): Promise<GameServer> {
   const serverId = await createHostChannelId();
   let onConnectionHandler: (channel: Channel) => void;
   const signalServer = getSignalServer();
+  const router = createRouter(serverId);
   const server: GameServer = {
     serverId,
     peerConns: new Map<string, PeerConn>(),
     dcMap: new Map<RTCDataChannel, PeerConn>(),
+    router,
+    adapters: new Map<string, WebRTCAdapter>(),
     onConnection(handler) {
       onConnectionHandler = handler;
     },
@@ -69,6 +80,12 @@ export async function hostGame(): Promise<GameServer> {
             server.dcMap.set(peer.dc!, peer);
 
             server.dcMap.set(peer.dcReliable!, peer);
+
+            // Create WebRTC adapter for routing integration
+            const adapter = createWebRTCAdapter(serverId, msg.from, peer);
+            server.adapters.set(msg.from, adapter);
+            server.router.registerAdapter(adapter);
+
             const emitter = mitt<Events>();
             const onMsg = (ev: MessageEvent<any>) => {
               const dc = ev.target as RTCDataChannel;
@@ -76,6 +93,15 @@ export async function hostGame(): Promise<GameServer> {
               if (!peer) return;
               console.debug("dcMsg", peer.remoteId, dc.label, ev.data);
               const json = JSON.parse(ev.data);
+
+              // Check if this is a routing message and handle it via adapter
+              const isReliable = dc === peer.dcReliable;
+              const clientAdapter = server.adapters.get(peer.remoteId);
+              if (clientAdapter) {
+                handleIncomingWebRTCMessage(clientAdapter, json, isReliable);
+              }
+
+              // Also emit via mitt for existing non-routing behavior
               emitter.emit(json.t, json.data);
             };
 
@@ -134,6 +160,12 @@ export async function hostGame(): Promise<GameServer> {
 
             peer.dc!.onclose = () => {
               console.debug("DataChannel closed", msg.from);
+              // Clean up routing adapter
+              const adapter = server.adapters.get(msg.from);
+              if (adapter && adapter.onClientRemove) {
+                adapter.onClientRemove(msg.from);
+              }
+              server.adapters.delete(msg.from);
               onDisconnectHandler?.(msg.from);
             };
           };

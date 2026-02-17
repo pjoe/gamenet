@@ -27,7 +27,7 @@ export function createWebRTCAdapter(
   id: string,
   remoteId: string,
   peerConn: PeerConn
-): Adapter {
+): WebRTCAdapter {
   const adapter: WebRTCAdapter = {
     id,
     peerConn,
