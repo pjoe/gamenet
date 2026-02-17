@@ -3,6 +3,42 @@ import { useEffect, useState } from "react";
 
 type JoinState = "idle" | "joining" | "joined" | "error";
 
+interface ClientsPingListEntry {
+  clientId: string;
+  pingMs: number | null;
+}
+
+interface ClientsPingListPayload {
+  ts: number;
+  clients: ClientsPingListEntry[];
+}
+
+function isClientsPingListPayload(
+  value: unknown
+): value is ClientsPingListPayload {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const payload = value as Partial<ClientsPingListPayload>;
+  if (!Array.isArray(payload.clients)) {
+    return false;
+  }
+
+  return payload.clients.every((client) => {
+    if (!client || typeof client !== "object") {
+      return false;
+    }
+
+    const entry = client as Partial<ClientsPingListEntry>;
+    const pingIsValid =
+      entry.pingMs === null ||
+      (typeof entry.pingMs === "number" && Number.isFinite(entry.pingMs));
+
+    return typeof entry.clientId === "string" && pingIsValid;
+  });
+}
+
 function Join() {
   const [serverId, setServerId] = useState("");
   const [extraLatency, setExtraLatency] = useState(0);
@@ -10,6 +46,9 @@ function Join() {
   const [_message, _setMessage] = useState("");
   const [_messages, setMessages] = useState<string[]>([]);
   const [gameClient, setGameClient] = useState<GameClient>();
+  const [clientPingList, setClientPingList] = useState<ClientsPingListEntry[]>(
+    []
+  );
 
   useEffect(() => {
     return () => {
@@ -26,14 +65,28 @@ function Join() {
           extraLatency: extraLatency,
         });
         client.onConnected(() => {
-          client.onDisconnected(() => setJoinState("idle"));
+          client.onDisconnected(() => {
+            setJoinState("idle");
+            setClientPingList([]);
+          });
           setJoinState("joined");
-          client.on("*", (type, data) =>
-            setMessages((msgs) => [...msgs, `${type}: ${JSON.stringify(data)}`])
-          );
+          client.on("*", (type, data) => {
+            if (type === "clients_ping_list") {
+              if (isClientsPingListPayload(data)) {
+                setClientPingList(data.clients);
+              }
+              return;
+            }
+
+            setMessages((msgs) => [
+              ...msgs,
+              `${type}: ${JSON.stringify(data)}`,
+            ]);
+          });
         });
         setGameClient(client);
       })();
+      setClientPingList([]);
       setJoinState("joining");
     }
   };
@@ -151,6 +204,36 @@ function Join() {
                 <p className="text-[var(--color-info-text)] text-sm transition-colors duration-200">
                   Waiting for host to start the game...
                 </p>
+              </div>
+
+              <div className="mt-6 text-left">
+                <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3 transition-colors duration-200">
+                  Connected Clients ({clientPingList.length})
+                </h3>
+                {clientPingList.length === 0 ? (
+                  <p className="text-[var(--color-text-secondary)] text-sm transition-colors duration-200">
+                    No clients connected yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {clientPingList.map((client) => (
+                      <div
+                        key={client.clientId}
+                        className="bg-[var(--color-bg-tertiary)] rounded-lg p-3 flex items-center justify-between transition-colors duration-200"
+                      >
+                        <p className="font-mono text-[var(--color-text-primary)] transition-colors duration-200">
+                          {client.clientId}
+                        </p>
+                        <p className="text-sm text-[var(--color-text-secondary)] transition-colors duration-200">
+                          Ping:{" "}
+                          {client.pingMs === null
+                            ? "N/A"
+                            : `${client.pingMs.toFixed(2)}ms`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-6">

@@ -1,5 +1,15 @@
 import { Channel, GameServer, hostGame } from "@gamenet";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+interface ClientsPingListEntry {
+  clientId: string;
+  pingMs: number | null;
+}
+
+interface ClientsPingListPayload {
+  ts: number;
+  clients: ClientsPingListEntry[];
+}
 
 function Host() {
   const [isHosting, setIsHosting] = useState(false);
@@ -7,19 +17,71 @@ function Host() {
   const [clients, setClients] = useState<Channel[]>([]);
   const [gameServer, setGameServer] = useState<GameServer>();
 
+  const createClientsPingListPayload = useCallback(
+    (channels: Channel[]): ClientsPingListPayload => ({
+      ts: Date.now(),
+      clients: channels.map((channel) => ({
+        clientId: channel.clientId,
+        pingMs: channel.latency < 0 ? null : Number(channel.latency.toFixed(2)),
+      })),
+    }),
+    []
+  );
+
+  const broadcastClientsPingList = useCallback(
+    (channels: Channel[]) => {
+      const payload = createClientsPingListPayload(channels);
+      channels.forEach((channel) => {
+        channel.emit("clients_ping_list", payload);
+      });
+    },
+    [createClientsPingListPayload]
+  );
+
   useEffect(() => {
     return () => {
       gameServer?.dispose();
     };
   }, [gameServer]);
 
+  useEffect(() => {
+    if (!isHosting) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setClients((currentClients) => {
+        if (currentClients.length === 0) {
+          return currentClients;
+        }
+        const refreshedClients = [...currentClients];
+        broadcastClientsPingList(refreshedClients);
+        return refreshedClients;
+      });
+    }, 500);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [broadcastClientsPingList, isHosting]);
+
   const handleHostGame = async () => {
     const server = await hostGame();
     server.onConnection((channel) => {
-      setClients((clients) => [channel, ...clients]);
+      setClients((currentClients) => {
+        const nextClients = [channel, ...currentClients];
+        broadcastClientsPingList(nextClients);
+        return nextClients;
+      });
       channel.emit("msg", "Welcome to the server!");
       channel.onDisconnect((clientId) => {
-        setClients((clients) => clients.filter((c) => c.clientId !== clientId));
+        setClients((currentClients) => {
+          const nextClients = currentClients.filter(
+            (client) => client.clientId !== clientId
+          );
+          broadcastClientsPingList(nextClients);
+          return nextClients;
+        });
       });
       channel.on("*", (from, type, data) =>
         setMessages((msgs) => [
@@ -27,10 +89,6 @@ function Host() {
           `${from}: ${type}: ${JSON.stringify(data)}`,
         ])
       );
-      // update pings
-      const _interval = setInterval(() => {
-        setClients((clients) => [...clients]);
-      }, 1000);
     });
     setGameServer(server);
     setIsHosting(true);
@@ -99,7 +157,10 @@ function Host() {
                         </p>
                       </div>
                       <div className="text-sm text-[var(--color-text-secondary)] transition-colors duration-200">
-                        Ping: {client.latency.toFixed(2)}ms
+                        Ping:{" "}
+                        {client.latency < 0
+                          ? "N/A"
+                          : `${client.latency.toFixed(2)}ms`}
                       </div>
                     </div>
                   ))}
