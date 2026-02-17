@@ -41,6 +41,16 @@ export interface HostGameArgs {
   createAdapterManager?: (args: { serverId: string }) => ServerAdapterManager;
 }
 
+interface ClientsPingListEntry {
+  clientId: string;
+  pingMs: number | null;
+}
+
+interface ClientsPingListPayload {
+  ts: number;
+  clients: ClientsPingListEntry[];
+}
+
 export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
   const serverId = args.serverId ?? (await createHostChannelId());
   let onConnectionHandler: (channel: Channel) => void;
@@ -48,6 +58,25 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
     args.createAdapterManager?.({ serverId }) ??
     createServerWebRTCAdapterManager({ serverId });
   const router = createRouter(serverId);
+  const channels = new Map<string, Channel>();
+  const clientsPingListInterval = setInterval(() => {
+    if (channels.size === 0) {
+      return;
+    }
+
+    const payload: ClientsPingListPayload = {
+      ts: Date.now(),
+      clients: Array.from(channels.values()).map((ch) => ({
+        clientId: ch.clientId,
+        pingMs: ch.latency < 0 ? null : Number(ch.latency.toFixed(2)),
+      })),
+    };
+
+    channels.forEach((channel) => {
+      channel.emit("clients_ping_list", payload, { reliable: true });
+    });
+  }, 500);
+
   const server: GameServer = {
     serverId,
     sessions: manager.sessions,
@@ -57,6 +86,7 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
       onConnectionHandler = handler;
     },
     dispose() {
+      clearInterval(clientsPingListInterval);
       manager.dispose();
     },
   };
@@ -99,6 +129,8 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
       },
     };
 
+    channels.set(remoteId, channel);
+
     function ping() {
       const now = Date.now();
       channel.emit("ping", { time: now });
@@ -123,6 +155,7 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
         server.router.adapters.delete(adapter.id);
       }
       server.adapters.delete(remoteId);
+      channels.delete(remoteId);
       onDisconnectHandler?.(remoteId);
     };
 

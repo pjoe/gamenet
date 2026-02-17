@@ -19,6 +19,10 @@ function createMockAdapter(id: string, remoteId: string): Adapter {
 }
 
 describe("hostGame", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("supports injected transport manager with non-WebRTC adapter", async () => {
     const sessions = new Map<string, ServerAdapterSession>();
     const manager: ServerAdapterManager = {
@@ -70,5 +74,51 @@ describe("hostGame", () => {
 
     server.dispose();
     expect(manager.dispose).toHaveBeenCalled();
+  });
+
+  it("broadcasts clients_ping_list to connected channels", async () => {
+    jest.useFakeTimers();
+
+    const sessions = new Map<string, ServerAdapterSession>();
+    const manager: ServerAdapterManager = {
+      sessions,
+      dispose: jest.fn(),
+    };
+
+    const server = await hostGame({
+      createAdapterManager: () => manager,
+    });
+
+    server.onConnection(() => {});
+
+    const remoteId = "worker-client-2";
+    const adapter = createMockAdapter("worker-adapter-2", remoteId);
+    const sendJSON = jest.fn();
+    const sendRaw = jest.fn();
+    const session: ServerAdapterSession = {
+      remoteId,
+      adapter,
+      sendJSON,
+      sendRaw,
+      dispose: jest.fn(),
+    };
+
+    sessions.set(remoteId, session);
+    manager.onConnection?.(session);
+
+    jest.advanceTimersByTime(500);
+
+    expect(sendJSON).toHaveBeenCalledWith(
+      {
+        t: "clients_ping_list",
+        data: {
+          ts: expect.any(Number),
+          clients: [{ clientId: remoteId, pingMs: null }],
+        },
+      },
+      { reliable: true }
+    );
+
+    server.dispose();
   });
 });
