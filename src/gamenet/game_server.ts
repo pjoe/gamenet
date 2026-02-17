@@ -159,14 +159,14 @@ export async function hostGame(): Promise<GameServer> {
             onConnectionHandler(channel);
 
             peer.dc!.onclose = () => {
-              console.debug("DataChannel closed", msg.from);
+              console.debug("DataChannel closed", peer.remoteId);
               // Clean up routing adapter
-              const adapter = server.adapters.get(msg.from);
+              const adapter = server.adapters.get(peer.remoteId);
               if (adapter && adapter.onClientRemove) {
-                adapter.onClientRemove(msg.from);
+                adapter.onClientRemove(peer.remoteId);
               }
-              server.adapters.delete(msg.from);
-              onDisconnectHandler?.(msg.from);
+              server.adapters.delete(peer.remoteId);
+              onDisconnectHandler?.(peer.remoteId);
             };
           };
           server.peerConns.set(msg.from, peer);
