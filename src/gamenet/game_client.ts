@@ -8,6 +8,8 @@ import {
   SendOptions,
 } from "./routing/adapter";
 import { createClientWebRTCAdapterSession } from "./routing/adapter_webrtc";
+import { createClient } from "./routing/client";
+import { decodeRoutingEnvelopePayload } from "./routing/envelope_payload";
 import { createRouter, Router } from "./routing/router";
 
 type EmitOptions = SendOptions;
@@ -39,6 +41,7 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
   const extraLatency = args.extraLatency ?? 0;
   const clientId = createClientChannelId();
   const router = createRouter(clientId);
+  router.registerClient(createClient(clientId));
   const session =
     args.createAdapterSession?.({
       clientId,
@@ -110,13 +113,16 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
   };
 
   session.onMessage = (json: MessageEnvelope) => {
+    const decodedPayload = decodeRoutingEnvelopePayload(json.data);
+    const eventData = decodedPayload ?? json.data;
+
     if (gameClient.extraLatency > 0) {
       setTimeout(
-        () => emitter.emit(json.t, json.data),
+        () => emitter.emit(json.t, eventData),
         gameClient.extraLatency * 0.5
       );
     } else {
-      emitter.emit(json.t, json.data);
+      emitter.emit(json.t, eventData);
     }
   };
 
