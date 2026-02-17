@@ -206,15 +206,11 @@ function bindPeerDataChannels(
 
   if (peer.dc) {
     peer.dc.onmessage = onMsg;
-    peer.dc.addEventListener("message", onMsg as EventListener);
     peer.dc.onclose = handleClose;
-    peer.dc.addEventListener("close", handleClose);
   }
   if (peer.dcReliable) {
     peer.dcReliable.onmessage = onMsg;
-    peer.dcReliable.addEventListener("message", onMsg as EventListener);
     peer.dcReliable.onclose = handleClose;
-    peer.dcReliable.addEventListener("close", handleClose);
   }
 }
 

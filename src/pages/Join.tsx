@@ -3,7 +3,7 @@ import type {
   ClientsPingListEntry,
   ClientsPingListPayload,
 } from "@gamenet/clients_ping_list";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type JoinState = "idle" | "joining" | "joined" | "error";
 
@@ -49,42 +49,59 @@ function Join() {
     };
   }, [gameClient]);
 
-  const handleJoinGame = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (serverId.trim()) {
-      (async () => {
-        const client = await joinGame({
-          serverId: serverId,
-          extraLatency: extraLatency,
-        });
-        client.onConnected(() => {
-          client.onDisconnected(() => {
-            setJoinState("idle");
-            setClientPingList([]);
-            setMessages([]);
+  const handleJoinGame = useCallback(
+    (e: React.SubmitEvent) => {
+      e.preventDefault();
+      if (serverId.trim()) {
+        (async () => {
+          const client = await joinGame({
+            serverId: serverId,
+            extraLatency: extraLatency,
           });
-          setJoinState("joined");
-          client.on("*", (type, data) => {
-            if (type === "clients_ping_list") {
-              if (isClientsPingListPayload(data)) {
-                setClientPingList(data.clients);
+          client.onConnected(() => {
+            client.onDisconnected(() => {
+              setJoinState("idle");
+              setClientPingList([]);
+              setMessages([]);
+            });
+            setJoinState("joined");
+            client.on("*", (type, data) => {
+              if (type === "clients_ping_list") {
+                if (isClientsPingListPayload(data)) {
+                  setClientPingList(data.clients);
+                }
+                return;
               }
-              return;
-            }
 
-            setMessages((msgs) => [
-              ...msgs,
-              `${type}: ${JSON.stringify(data)}`,
-            ]);
+              setMessages((msgs) => [
+                ...msgs,
+                `${type}: ${JSON.stringify(data)}`,
+              ]);
+            });
           });
-        });
-        setGameClient(client);
-      })();
-      setClientPingList([]);
-      setMessages([]);
-      setJoinState("joining");
-    }
-  };
+          setGameClient(client);
+        })();
+        setClientPingList([]);
+        setMessages([]);
+        setJoinState("joining");
+      }
+    },
+    [extraLatency, serverId]
+  );
+
+  const handleExtraLatencyChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newLatency = Math.min(
+        2000,
+        Math.max(0, parseInt(e.target.value) || 0)
+      );
+      setExtraLatency(newLatency);
+      if (gameClient) {
+        gameClient.extraLatency = newLatency;
+      }
+    },
+    [gameClient]
+  );
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
@@ -131,16 +148,7 @@ function Join() {
                   type="number"
                   id="extraLatency"
                   value={extraLatency}
-                  onChange={(e) => {
-                    const newLatency = Math.min(
-                      2000,
-                      Math.max(0, parseInt(e.target.value) || 0)
-                    );
-                    setExtraLatency(newLatency);
-                    if (gameClient) {
-                      gameClient.extraLatency = newLatency;
-                    }
-                  }}
+                  onChange={handleExtraLatencyChange}
                   placeholder="0"
                   min="0"
                   max="2000"
@@ -276,16 +284,7 @@ function Join() {
                 type="number"
                 id="extraLatencyJoined"
                 value={extraLatency}
-                onChange={(e) => {
-                  const newLatency = Math.min(
-                    2000,
-                    Math.max(0, parseInt(e.target.value) || 0)
-                  );
-                  setExtraLatency(newLatency);
-                  if (gameClient) {
-                    gameClient.extraLatency = newLatency;
-                  }
-                }}
+                onChange={handleExtraLatencyChange}
                 placeholder="0"
                 min="0"
                 max="2000"
