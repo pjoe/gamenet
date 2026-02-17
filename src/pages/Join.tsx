@@ -37,8 +37,7 @@ function Join() {
   const [serverId, setServerId] = useState("");
   const [extraLatency, setExtraLatency] = useState(0);
   const [joinState, setJoinState] = useState<JoinState>("idle");
-  const [_message, _setMessage] = useState("");
-  const [_messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<string[]>([]);
   const [gameClient, setGameClient] = useState<GameClient>();
   const [clientPingList, setClientPingList] = useState<ClientsPingListEntry[]>(
     []
@@ -62,6 +61,7 @@ function Join() {
           client.onDisconnected(() => {
             setJoinState("idle");
             setClientPingList([]);
+            setMessages([]);
           });
           setJoinState("joined");
           client.on("*", (type, data) => {
@@ -81,6 +81,7 @@ function Join() {
         setGameClient(client);
       })();
       setClientPingList([]);
+      setMessages([]);
       setJoinState("joining");
     }
   };
@@ -223,6 +224,40 @@ function Join() {
                           {client.pingMs === null
                             ? "N/A"
                             : `${client.pingMs.toFixed(2)}ms`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 text-left">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)] transition-colors duration-200">
+                    Received Messages ({messages.length})
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setMessages([])}
+                    disabled={messages.length === 0}
+                    className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] text-sm font-medium transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    Clear Messages
+                  </button>
+                </div>
+                {messages.length === 0 ? (
+                  <p className="text-[var(--color-text-secondary)] text-sm transition-colors duration-200">
+                    No messages received yet.
+                  </p>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {messages.map((message, index) => (
+                      <div
+                        key={`${index}-${message}`}
+                        className="bg-[var(--color-bg-tertiary)] rounded-lg p-3 transition-colors duration-200"
+                      >
+                        <p className="font-mono text-sm break-all text-[var(--color-text-primary)] transition-colors duration-200">
+                          {message}
                         </p>
                       </div>
                     ))}
