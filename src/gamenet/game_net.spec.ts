@@ -1,35 +1,182 @@
 import { GameClient, joinGame } from "./game_client";
-import { GameServer, hostGame } from "./game_server";
+import { Channel, GameServer, hostGame } from "./game_server";
 import { selectSignalServer } from "./signal_server";
-import { createMqttSignalServer } from "./signal_server_mqtt";
+import {
+  createMockSignalServer,
+  MockSignalServer,
+} from "./test/mock_signal_server";
 
-// default signal server
-const signalServer = createMqttSignalServer("wss://test.mosquitto.org:8081");
-selectSignalServer(signalServer);
+const TEST_TIMEOUT = 15000;
+const STEP_TIMEOUT = 4000;
 
 let gameServer: GameServer;
 let gameClient: GameClient;
+let signalServer: MockSignalServer;
+let activeServer: GameServer | undefined;
+let activeClient: GameClient | undefined;
 
-afterAll(() => {
-  if (gameServer) {
-    console.log("Disposing game server");
-    gameServer.dispose();
-  }
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = STEP_TIMEOUT
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
+function waitForServerEvent(
+  channel: Channel,
+  eventName: string
+): Promise<unknown> {
+  return withTimeout(
+    new Promise((resolve) => {
+      channel.on("*", (_, type, data) => {
+        if (type === eventName) {
+          resolve(data);
+        }
+      });
+    })
+  );
+}
+
+function waitForClientEvent(
+  client: GameClient,
+  eventName: string
+): Promise<unknown> {
+  return withTimeout(
+    new Promise((resolve) => {
+      client.on("*", (type, data) => {
+        if (type === eventName) {
+          resolve(data);
+        }
+      });
+    })
+  );
+}
+
+function waitForConnectedAdapter(client: GameClient): Promise<void> {
+  return withTimeout(
+    new Promise((resolve) => {
+      const checkConnected = () => {
+        if (client.adapter) {
+          resolve();
+          return;
+        }
+        setTimeout(checkConnected, 20);
+      };
+      checkConnected();
+    })
+  );
+}
+
+beforeEach(() => {
+  signalServer = createMockSignalServer();
+  selectSignalServer(signalServer);
 });
 
-describe.skip("gameNet", () => {
-  describe("host game", () => {
-    it("hosting game returns server", async () => {
-      gameServer = await hostGame();
-      expect(gameServer).toBeDefined();
-    });
-  });
+afterEach(async () => {
+  if (activeClient) {
+    activeClient.dispose();
+  }
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  if (activeServer) {
+    activeServer.dispose();
+  }
+  signalServer.reset();
+  activeClient = undefined;
+  activeServer = undefined;
+});
 
-  describe("join game", () => {
-    it("joining game returns client", async () => {
+describe("gameNet", () => {
+  it(
+    "hosts and joins game with bidirectional messaging",
+    async () => {
+      gameServer = await hostGame();
+      activeServer = gameServer;
       expect(gameServer).toBeDefined();
+
+      const onConnectionPromise = withTimeout(
+        new Promise<Channel>((resolve) => {
+          gameServer.onConnection((channel) => resolve(channel));
+        })
+      );
+
       gameClient = await joinGame({ serverId: gameServer.serverId });
+      activeClient = gameClient;
       expect(gameClient).toBeDefined();
-    });
-  });
+
+      const serverChannel = await onConnectionPromise;
+      expect(serverChannel.clientId).toBe(gameClient.clientId);
+      await waitForConnectedAdapter(gameClient);
+
+      const fromClientReliable = waitForServerEvent(
+        serverChannel,
+        "from_client_reliable"
+      );
+      gameClient.emit(
+        "from_client_reliable",
+        { source: "client", reliable: true },
+        { reliable: true }
+      );
+      await expect(fromClientReliable).resolves.toEqual({
+        source: "client",
+        reliable: true,
+      });
+
+      const fromClientUnreliable = waitForServerEvent(
+        serverChannel,
+        "from_client_unreliable"
+      );
+      gameClient.emit(
+        "from_client_unreliable",
+        { source: "client", reliable: false },
+        { reliable: false }
+      );
+      await expect(fromClientUnreliable).resolves.toEqual({
+        source: "client",
+        reliable: false,
+      });
+
+      const fromServerReliable = waitForClientEvent(
+        gameClient,
+        "from_server_reliable"
+      );
+      serverChannel.emit(
+        "from_server_reliable",
+        { source: "server", reliable: true },
+        { reliable: true }
+      );
+      await expect(fromServerReliable).resolves.toEqual({
+        source: "server",
+        reliable: true,
+      });
+
+      const fromServerUnreliable = waitForClientEvent(
+        gameClient,
+        "from_server_unreliable"
+      );
+      serverChannel.emit(
+        "from_server_unreliable",
+        { source: "server", reliable: false },
+        { reliable: false }
+      );
+      await expect(fromServerUnreliable).resolves.toEqual({
+        source: "server",
+        reliable: false,
+      });
+    },
+    TEST_TIMEOUT
+  );
 });

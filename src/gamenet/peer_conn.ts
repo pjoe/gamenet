@@ -42,18 +42,16 @@ export class PeerConn {
   }
 
   public sendJSON(msg: any, options?: { reliable: boolean }) {
-    if (options?.reliable) {
-      this.dcReliable?.send(JSON.stringify(msg));
-    } else {
-      this.dc?.send(JSON.stringify(msg));
+    const channel = options?.reliable ? this.dcReliable : this.dc;
+    if (channel?.readyState === "open") {
+      channel.send(JSON.stringify(msg));
     }
   }
 
   public sendRaw(msg: ArrayBuffer, options?: { reliable: boolean }) {
-    if (options?.reliable) {
-      this.dcReliable?.send(msg);
-    } else {
-      this.dc?.send(msg);
+    const channel = options?.reliable ? this.dcReliable : this.dc;
+    if (channel?.readyState === "open") {
+      channel.send(msg);
     }
   }
 

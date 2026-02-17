@@ -180,22 +180,45 @@ function bindPeerDataChannels(
 ) {
   const onMsg = (ev: MessageEvent<unknown>) => {
     const dc = ev.target as RTCDataChannel;
-    if (typeof ev.data !== "string") {
+    if (ev.data && typeof ev.data === "object" && "t" in ev.data) {
+      const isReliable = dc === peer.dcReliable;
+      onEnvelope(ev.data as Envelope, isReliable);
       return;
     }
-    const json = JSON.parse(ev.data) as Envelope;
-    const isReliable = dc === peer.dcReliable;
-    onEnvelope(json, isReliable);
+
+    let data: string | undefined;
+    if (typeof ev.data === "string") {
+      data = ev.data;
+    } else if (ev.data instanceof ArrayBuffer) {
+      data = new TextDecoder().decode(new Uint8Array(ev.data));
+    } else if (ArrayBuffer.isView(ev.data)) {
+      data = new TextDecoder().decode(ev.data);
+    }
+
+    if (!data) {
+      return;
+    }
+    try {
+      const json = JSON.parse(data) as Envelope;
+      const isReliable = dc === peer.dcReliable;
+      onEnvelope(json, isReliable);
+    } catch {
+      return;
+    }
   };
   const handleClose = () => onClose();
 
   if (peer.dc) {
     peer.dc.onmessage = onMsg;
+    peer.dc.addEventListener("message", onMsg as EventListener);
     peer.dc.onclose = handleClose;
+    peer.dc.addEventListener("close", handleClose);
   }
   if (peer.dcReliable) {
     peer.dcReliable.onmessage = onMsg;
+    peer.dcReliable.addEventListener("message", onMsg as EventListener);
     peer.dcReliable.onclose = handleClose;
+    peer.dcReliable.addEventListener("close", handleClose);
   }
 }
 

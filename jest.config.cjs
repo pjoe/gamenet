@@ -2,6 +2,7 @@
 module.exports = {
   preset: "ts-jest/presets/default-esm",
   testEnvironment: "node",
+  setupFilesAfterEnv: ["<rootDir>/src/gamenet/test/setup_node_webrtc.ts"],
   roots: ["<rootDir>/src"],
   testMatch: ["**/*.spec.ts"],
   transform: {
