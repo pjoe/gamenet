@@ -65,9 +65,9 @@ export async function hostGame(): Promise<GameServer> {
           const peer = new PeerConn({ send }, serverId, msg.from);
           peer.onConnected = (peer) => {
             console.log("Peer connected");
-             
+
             server.dcMap.set(peer.dc!, peer);
-             
+
             server.dcMap.set(peer.dcReliable!, peer);
             const emitter = mitt<Events>();
             const onMsg = (ev: MessageEvent<any>) => {
@@ -78,9 +78,9 @@ export async function hostGame(): Promise<GameServer> {
               const json = JSON.parse(ev.data);
               emitter.emit(json.t, json.data);
             };
-             
+
             peer.dc!.onmessage = onMsg;
-             
+
             peer.dcReliable!.onmessage = onMsg;
             let onDisconnectHandler: (clientId: string) => void;
             const channel: Channel = {
@@ -131,7 +131,7 @@ export async function hostGame(): Promise<GameServer> {
             setInterval(ping, 500);
 
             onConnectionHandler(channel);
-             
+
             peer.dc!.onclose = () => {
               console.debug("DataChannel closed", msg.from);
               onDisconnectHandler?.(msg.from);

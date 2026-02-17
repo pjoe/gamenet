@@ -111,9 +111,9 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
         gameClient.peerConn.onConnected = (peer) => {
           console.log("Peer connected");
           signalServer.unsubscribe();
-           
+
           peer.dc!.onmessage = onMsg;
-           
+
           peer.dcReliable!.onmessage = onMsg;
           peer.sendJSON({ t: "join" }, { reliable: true });
           // pings
@@ -121,7 +121,7 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
             gameClient.emit("pong", data);
           });
           onConnectedHandler?.();
-           
+
           peer.dc!.onclose = () => {
             onDisconnectedHandler?.();
           };
