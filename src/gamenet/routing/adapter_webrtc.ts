@@ -1,9 +1,62 @@
+import { PeerConn } from "../peer_conn";
+import { getSignalServer, SignalServer } from "../signal_server";
 import { Adapter } from "./adapter";
 import { Message } from "./message";
-import { PeerConn } from "../peer_conn";
+
+type SignalMsg = {
+  from: string;
+  t: string;
+  data: unknown;
+};
+
+type Envelope = {
+  t: string;
+  data?: unknown;
+};
+
+export type WebRTCSendOptions = {
+  reliable: boolean;
+};
 
 export interface WebRTCAdapter extends Adapter {
-  peerConn: PeerConn;
+  sendJSON: (msg: unknown, options?: WebRTCSendOptions) => void;
+}
+
+export interface ClientWebRTCAdapterSession {
+  adapter?: WebRTCAdapter;
+  onConnected?: (adapter: WebRTCAdapter) => void;
+  onDisconnected?: () => void;
+  onMessage?: (envelope: Envelope) => void;
+  sendJSON: (msg: unknown, options?: WebRTCSendOptions) => void;
+  sendRaw: (msg: ArrayBuffer, options?: WebRTCSendOptions) => void;
+  dispose: () => void;
+}
+
+export interface CreateClientWebRTCAdapterSessionArgs {
+  clientId: string;
+  serverId: string;
+  signalServer?: SignalServer;
+}
+
+export interface ServerWebRTCAdapterSession {
+  remoteId: string;
+  adapter: WebRTCAdapter;
+  onDisconnected?: () => void;
+  onMessage?: (envelope: Envelope) => void;
+  sendJSON: (msg: unknown, options?: WebRTCSendOptions) => void;
+  sendRaw: (msg: ArrayBuffer, options?: WebRTCSendOptions) => void;
+  dispose: () => void;
+}
+
+export interface ServerWebRTCAdapterManager {
+  sessions: Map<string, ServerWebRTCAdapterSession>;
+  onConnection?: (session: ServerWebRTCAdapterSession) => void;
+  dispose: () => void;
+}
+
+export interface CreateServerWebRTCAdapterManagerArgs {
+  serverId: string;
+  signalServer?: SignalServer;
 }
 
 /**
@@ -26,11 +79,11 @@ export interface WebRTCAdapter extends Adapter {
 export function createWebRTCAdapter(
   id: string,
   remoteId: string,
-  peerConn: PeerConn
+  sendJSON: (msg: unknown, options?: WebRTCSendOptions) => void
 ): WebRTCAdapter {
   const adapter: WebRTCAdapter = {
     id,
-    peerConn,
+    sendJSON,
     clientIds: new Set<string>([remoteId]),
     receiveMessage(message: Message) {
       // Handle outbound message from router to remote peer
@@ -52,7 +105,7 @@ export function createWebRTCAdapter(
       };
 
       // Send over appropriate channel based on reliability
-      peerConn.sendJSON(envelope, { reliable: message.reliable });
+      sendJSON(envelope, { reliable: message.reliable });
     },
     emitMessage(message: Message) {
       if (this.onEmitMessage) {
@@ -74,7 +127,7 @@ export function createWebRTCAdapter(
  */
 export function handleIncomingWebRTCMessage(
   adapter: WebRTCAdapter,
-  envelope: { t: string; data?: unknown },
+  envelope: Envelope,
   reliable: boolean
 ) {
   // Check if this is a routing message (has routing-specific structure)
@@ -118,6 +171,231 @@ export function handleIncomingWebRTCMessage(
     }
   }
   // If not a routing message, ignore it (preserves existing non-routing behavior)
+}
+
+function bindPeerDataChannels(
+  peer: PeerConn,
+  onEnvelope: (envelope: Envelope, reliable: boolean) => void,
+  onClose: () => void
+) {
+  const onMsg = (ev: MessageEvent<unknown>) => {
+    const dc = ev.target as RTCDataChannel;
+    if (typeof ev.data !== "string") {
+      return;
+    }
+    const json = JSON.parse(ev.data) as Envelope;
+    const isReliable = dc === peer.dcReliable;
+    onEnvelope(json, isReliable);
+  };
+  const handleClose = () => onClose();
+
+  if (peer.dc) {
+    peer.dc.onmessage = onMsg;
+    peer.dc.onclose = handleClose;
+  }
+  if (peer.dcReliable) {
+    peer.dcReliable.onmessage = onMsg;
+    peer.dcReliable.onclose = handleClose;
+  }
+}
+
+export function createClientWebRTCAdapterSession(
+  args: CreateClientWebRTCAdapterSessionArgs
+): ClientWebRTCAdapterSession {
+  const signalServer = args.signalServer ?? getSignalServer();
+  let peerConn: PeerConn | undefined;
+  let disposed = false;
+
+  const sendSignal = signalServer.send.bind(null, args.clientId);
+
+  const cleanupAdapter = () => {
+    if (!session.adapter) {
+      return;
+    }
+    if (session.adapter.onClientRemove) {
+      session.adapter.onClientRemove(args.serverId);
+    }
+    session.adapter = undefined;
+  };
+
+  const session: ClientWebRTCAdapterSession = {
+    adapter: undefined,
+    sendJSON(msg, options) {
+      peerConn?.sendJSON(msg, options);
+    },
+    sendRaw(msg, options) {
+      peerConn?.sendRaw(msg, options);
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      signalServer.unsubscribe();
+      cleanupAdapter();
+      peerConn?.close();
+      peerConn = undefined;
+    },
+  };
+
+  signalServer.subscribe(args.clientId, (message) => {
+    if (disposed) {
+      return;
+    }
+
+    const msg = JSON.parse(message) as SignalMsg;
+    switch (msg.t) {
+      case "joined": {
+        peerConn = new PeerConn(
+          { send: sendSignal },
+          args.clientId,
+          args.serverId
+        );
+        peerConn.onConnected = (peer) => {
+          signalServer.unsubscribe();
+
+          const adapter = createWebRTCAdapter(
+            args.clientId,
+            args.serverId,
+            (m, o) => peer.sendJSON(m, o)
+          );
+          session.adapter = adapter;
+
+          bindPeerDataChannels(
+            peer,
+            (envelope, reliable) => {
+              if (!session.adapter) {
+                return;
+              }
+              handleIncomingWebRTCMessage(session.adapter, envelope, reliable);
+              session.onMessage?.(envelope);
+            },
+            () => {
+              cleanupAdapter();
+              session.onDisconnected?.();
+            }
+          );
+
+          peer.sendJSON({ t: "join" }, { reliable: true });
+          session.onConnected?.(adapter);
+        };
+        peerConn.offer();
+        break;
+      }
+      case "candidate":
+        peerConn?.incomingCandidate(msg);
+        break;
+      case "answer":
+        peerConn?.incomingAnswer(msg);
+        break;
+    }
+  });
+
+  sendSignal(args.serverId, "join");
+
+  return session;
+}
+
+export function createServerWebRTCAdapterManager(
+  args: CreateServerWebRTCAdapterManagerArgs
+): ServerWebRTCAdapterManager {
+  const signalServer = args.signalServer ?? getSignalServer();
+  const sessions = new Map<string, ServerWebRTCAdapterSession>();
+  const peerConns = new Map<string, PeerConn>();
+  let disposed = false;
+
+  const manager: ServerWebRTCAdapterManager = {
+    sessions,
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      signalServer.unsubscribe();
+      for (const session of sessions.values()) {
+        session.dispose();
+      }
+      sessions.clear();
+      peerConns.clear();
+    },
+  };
+
+  const sendSignal = signalServer.send.bind(null, args.serverId);
+
+  signalServer.subscribe(args.serverId, (message) => {
+    if (disposed) {
+      return;
+    }
+
+    const msg = JSON.parse(message) as SignalMsg;
+    switch (msg.t) {
+      case "join":
+        sendSignal(msg.from, "joined");
+        break;
+      case "offer": {
+        const remoteId = msg.from;
+        const peer = new PeerConn(
+          { send: sendSignal },
+          args.serverId,
+          remoteId
+        );
+        peerConns.set(remoteId, peer);
+
+        peer.onConnected = (connectedPeer) => {
+          const adapterId = `${args.serverId}:${remoteId}`;
+          const adapter = createWebRTCAdapter(adapterId, remoteId, (m, o) =>
+            connectedPeer.sendJSON(m, o)
+          );
+
+          const session: ServerWebRTCAdapterSession = {
+            remoteId,
+            adapter,
+            sendJSON(message, options) {
+              connectedPeer.sendJSON(message, options);
+            },
+            sendRaw(message, options) {
+              connectedPeer.sendRaw(message, options);
+            },
+            dispose() {
+              if (session.adapter.onClientRemove) {
+                session.adapter.onClientRemove(remoteId);
+              }
+              sessions.delete(remoteId);
+              peerConns.delete(remoteId);
+              connectedPeer.close();
+            },
+          };
+
+          bindPeerDataChannels(
+            connectedPeer,
+            (envelope, reliable) => {
+              handleIncomingWebRTCMessage(adapter, envelope, reliable);
+              session.onMessage?.(envelope);
+            },
+            () => {
+              if (session.adapter.onClientRemove) {
+                session.adapter.onClientRemove(remoteId);
+              }
+              sessions.delete(remoteId);
+              peerConns.delete(remoteId);
+              session.onDisconnected?.();
+            }
+          );
+
+          sessions.set(remoteId, session);
+          manager.onConnection?.(session);
+        };
+
+        peer.incomingOffer(msg);
+        break;
+      }
+      case "candidate":
+        peerConns.get(msg.from)?.incomingCandidate(msg);
+        break;
+    }
+  });
+
+  return manager;
 }
 
 /**

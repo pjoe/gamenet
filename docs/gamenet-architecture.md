@@ -27,12 +27,12 @@ At startup, `src/gamenet/index.ts` selects a default signal server implementatio
 
 - `game_server.ts`
   - Implements `hostGame(): Promise<GameServer>`.
-  - Owns active `PeerConn`s for connected clients.
+  - Owns active adapter-backed sessions for connected clients.
   - Converts data channel messages into typed events (via `mitt`).
   - Emits per-client `Channel` objects to game code.
 - `game_client.ts`
   - Implements `joinGame({ serverId, extraLatency })`.
-  - Creates local client id and drives join + offer flow.
+  - Creates local client id and starts adapter-backed join flow.
   - Emits inbound game events via `mitt`.
   - Supports optional synthetic latency (`extraLatency`) in both directions.
 
@@ -69,11 +69,12 @@ At startup, `src/gamenet/index.ts` selects a default signal server implementatio
 
 - `client.ts`: generic message endpoint (`Client`).
 - `adapter.ts`: adapter abstraction (can wrap workers).
-- `adapter_webrtc.ts`: WebRTC adapter for remote peer communication (internal, not publicly exported).
+- `adapter_webrtc.ts`: WebRTC adapter + internal client/server WebRTC session managers (internal, not publicly exported).
 - `router.ts`: route table + adapter/client registration and forwarding.
 - `message.ts`: binary message shape (`ArrayBuffer`, `reliable` flag).
 
-**Integration status**: 
+**Integration status**:
+
 - Routing infrastructure is now wired into `hostGame` and `joinGame` runtime
 - Each `GameServer` creates a `Router` and `WebRTCAdapter` per connected peer
 - Each `GameClient` creates a `Router` and `WebRTCAdapter` for server connection
@@ -118,31 +119,25 @@ sequenceDiagram
 
 ### Host side (`GameServer`)
 
-- Subscribes on `serverId` signaling topic/channel.
 - Creates a `Router` instance for message routing.
-- For each joiner:
-  - responds `joined`,
-  - creates a `PeerConn` on offer,
-  - creates a `WebRTCAdapter` and registers it with router,
-  - tracks connection in `peerConns`, `dcMap`, and `adapters`.
+- Delegates signaling + negotiation + data-channel lifecycle to internal server adapter manager.
+- For each connected session:
+  - registers session `WebRTCAdapter` with router,
+  - tracks session + adapter by remote client id,
+  - bridges non-routing envelopes to `mitt` events.
 - Creates a per-client `Channel` abstraction with:
   - `on(type|"*")`
   - `emit(...)` / `emitRaw(...)`
   - `onDisconnect(...)`
 - Sends periodic pings every 500 ms and maintains smoothed latency estimate.
-- Data channel handlers check for routing messages and pass them to adapter.
 - Cleans up adapter routes on peer disconnect.
 
 ### Client side (`GameClient`)
 
-- Subscribes on generated `clientId` signaling channel.
 - Creates a `Router` instance for message routing.
-- Sends initial `join` to `serverId`.
-- On `joined`, creates offer and completes negotiation.
+- Delegates signaling + negotiation + data-channel lifecycle to internal client adapter session.
 - On connect:
   - creates a `WebRTCAdapter` and registers it with router,
-  - unsubscribes from signaling,
-  - binds data channel handlers (with routing support),
   - sends reliable `{t:"join"}` event,
   - auto-responds to host `ping` with `pong`.
 - Cleans up adapter on disconnect.
@@ -169,10 +164,10 @@ Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameC
 
 ## Notable implementation characteristics
 
-- Signal server is selected globally (singleton-style) rather than per session.
+- Signal server can be injected into adapter sessions, with global selected server used by default.
 - Two-channel design allows reliability tradeoffs per message.
 - `extraLatency` is a useful deterministic network simulation hook on client side.
-- Host ping interval is created per connection and not currently cleared on disconnect/dispose.
+- Host ping interval is created per connection and cleared on disconnect.
 - Routing infrastructure is wired internally but not exposed in public API.
 - Routing and non-routing messages coexist on same data channels without interference.
 
