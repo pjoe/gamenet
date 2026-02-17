@@ -1,5 +1,12 @@
 # Project Guidelines
 
+## Environment Setup
+
+Dependencies are automatically pre-installed via `.github/workflows/copilot-setup-steps.yml` when Copilot starts working. This workflow:
+
+- Sets up Node.js 24 with npm caching
+- Installs all project dependencies with `npm ci`
+
 ## Code Style
 
 - Use TypeScript with strict typing; avoid weakening types unless existing networking files already require it.
