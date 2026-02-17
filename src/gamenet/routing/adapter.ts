@@ -48,4 +48,11 @@ export interface ServerAdapterManager<
   dispose: () => void;
 }
 
-export { createWorkerAdapter, type WorkerAdapter } from "./worker_adapter.ts";
+export {
+  createWorkerAdapter,
+  createWorkerServerAdapterManager,
+  type WorkerAdapter,
+  type WorkerPostMessage,
+  type WorkerServerAdapterManagerArgs,
+  type WorkerServerAdapterManagerResult,
+} from "./worker_adapter.ts";

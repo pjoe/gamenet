@@ -37,11 +37,12 @@ export interface GameServer {
 }
 
 export interface HostGameArgs {
+  serverId?: string;
   createAdapterManager?: (args: { serverId: string }) => ServerAdapterManager;
 }
 
 export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
-  const serverId = await createHostChannelId();
+  const serverId = args.serverId ?? (await createHostChannelId());
   let onConnectionHandler: (channel: Channel) => void;
   const manager =
     args.createAdapterManager?.({ serverId }) ??

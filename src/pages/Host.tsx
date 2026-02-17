@@ -1,12 +1,14 @@
-import { Channel } from "@gamenet";
 import { createHostChannelId } from "@gamenet/channel";
-import { createWorkerAdapter } from "@gamenet/routing/adapter";
+import { joinGame } from "@gamenet/game_client";
+import {
+  Adapter,
+  ClientAdapterSession,
+  createWorkerAdapter,
+} from "@gamenet/routing/adapter";
 import { createServerWebRTCAdapterManager } from "@gamenet/routing/adapter_webrtc";
-import { decodeRoutingEnvelopePayload } from "@gamenet/routing/envelope_payload";
 import { Message } from "@gamenet/routing/message";
-import { createRouter } from "@gamenet/routing/router";
-import mitt from "mitt";
-import { useCallback, useEffect, useState } from "react";
+import { createRouter, Router } from "@gamenet/routing/router";
+import { useEffect, useState } from "react";
 
 interface ClientsPingListEntry {
   clientId: string;
@@ -20,24 +22,22 @@ interface ClientsPingListPayload {
 
 interface HostRuntime {
   serverId: string;
-  emitToWorkerClientsPingList: (channels: Channel[]) => void;
   dispose: () => void;
 }
 
 const WORKER_SERVER_ID = "host-worker";
 
-function isRoutingEnvelope(data: unknown): boolean {
-  return !!(
-    data &&
-    typeof data === "object" &&
-    "from" in data &&
-    "to" in data &&
-    "payload" in data
-  );
+function encodePayload(data: unknown): ArrayBuffer {
+  return new TextEncoder().encode(JSON.stringify(data)).buffer as ArrayBuffer;
 }
 
-function encodePayload(data: unknown): ArrayBuffer {
-  return new TextEncoder().encode(JSON.stringify(data)).buffer;
+function decodePayload<T = unknown>(data: ArrayBuffer): T | undefined {
+  try {
+    const text = new TextDecoder().decode(new Uint8Array(data));
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined;
+  }
 }
 
 function createWorkerServerWorker() {
@@ -47,71 +47,146 @@ function createWorkerServerWorker() {
   );
 }
 
+/**
+ * Creates a simple adapter for a WebRTC client that:
+ * - receiveMessage: converts routing Message to plain JSON and sends via session.sendJSON
+ * - emitMessage: no-op (inbound messages are handled by session.onMessage in the caller)
+ */
+function createClientBridgeAdapter(
+  adapterId: string,
+  clientId: string,
+  sendJSON: (msg: unknown, options?: { reliable: boolean }) => void,
+  sendRaw: (msg: ArrayBuffer, options?: { reliable: boolean }) => void
+) {
+  return {
+    id: adapterId,
+    clientIds: new Set<string>([clientId]),
+    receiveMessage(message: Message) {
+      this.onReceiveMessage?.(message);
+      const decoded = decodePayload(message.data);
+      if (message.type === "raw" && message.data) {
+        sendRaw(message.data, { reliable: message.reliable });
+      } else {
+        sendJSON(
+          { t: message.type, data: decoded },
+          { reliable: message.reliable }
+        );
+      }
+    },
+    emitMessage(message: Message) {
+      this.onEmitMessage?.(message);
+    },
+  } satisfies import("@gamenet/routing/adapter").Adapter;
+}
+
+/**
+ * Creates a ClientAdapterSession that connects a GameClient to the host's
+ * router locally (no WebRTC). Messages are routed through the host router
+ * to the worker, and responses are delivered back via onMessage.
+ */
+function createLocalClientAdapterSession(args: {
+  clientId: string;
+  targetId: string;
+  hostRouter: Router;
+}): ClientAdapterSession {
+  const { clientId, targetId, hostRouter } = args;
+
+  // Adapter registered with the host router to receive messages for this client
+  const hostSideAdapter: Adapter = {
+    id: `local:${clientId}`,
+    clientIds: new Set([clientId]),
+    receiveMessage(message: Message) {
+      this.onReceiveMessage?.(message);
+      const decoded = decodePayload(message.data);
+      session.onMessage?.({ t: message.type, data: decoded });
+    },
+    emitMessage(message: Message) {
+      this.onEmitMessage?.(message);
+    },
+  };
+
+  // Adapter returned to joinGame for its internal router registration
+  const clientSideAdapter: Adapter = {
+    id: `local-gw:${clientId}`,
+    clientIds: new Set([targetId]),
+    receiveMessage(message: Message) {
+      this.onReceiveMessage?.(message);
+    },
+    emitMessage(message: Message) {
+      this.onEmitMessage?.(message);
+    },
+  };
+
+  const session: ClientAdapterSession = {
+    adapter: undefined,
+    sendJSON(msg: unknown, options?: { reliable: boolean }) {
+      const envelope = msg as { t: string; data?: unknown };
+      const message: Message = {
+        from: clientId,
+        to: targetId,
+        type: envelope.t,
+        data: encodePayload(envelope.data),
+        reliable: options?.reliable ?? true,
+      };
+      hostRouter.sendMessage(message);
+    },
+    sendRaw(data: ArrayBuffer, options?: { reliable: boolean }) {
+      const message: Message = {
+        from: clientId,
+        to: targetId,
+        type: "raw",
+        data,
+        reliable: options?.reliable ?? true,
+      };
+      hostRouter.sendMessage(message);
+    },
+    dispose() {
+      hostRouter.adapters.delete(hostSideAdapter.id);
+      hostRouter.routes.delete(clientId);
+      const disconnectMsg: Message = {
+        from: clientId,
+        to: targetId,
+        type: "__client_disconnected",
+        data: encodePayload({ clientId }),
+        reliable: true,
+      };
+      hostRouter.sendMessage(disconnectMsg);
+    },
+  };
+
+  hostRouter.registerAdapter(hostSideAdapter);
+
+  // Notify worker that this client connected
+  const connectMsg: Message = {
+    from: clientId,
+    to: targetId,
+    type: "__client_connected",
+    data: encodePayload({ clientId }),
+    reliable: true,
+  };
+  hostRouter.sendMessage(connectMsg);
+
+  // Connect immediately on next microtask
+  session.adapter = clientSideAdapter;
+  queueMicrotask(() => {
+    session.onConnected?.(clientSideAdapter);
+  });
+
+  return session;
+}
+
 function Host() {
   const [isHosting, setIsHosting] = useState(false);
-  const [_messages, setMessages] = useState<string[]>([]);
-  const [clients, setClients] = useState<Channel[]>([]);
-  const [gameServer, setGameServer] = useState<HostRuntime>();
-
-  const createClientsPingListPayload = useCallback(
-    (channels: Channel[]): ClientsPingListPayload => ({
-      ts: Date.now(),
-      clients: channels.map((channel) => ({
-        clientId: channel.clientId,
-        pingMs: channel.latency < 0 ? null : Number(channel.latency.toFixed(2)),
-      })),
-    }),
+  const [clientPingList, setClientPingList] = useState<ClientsPingListEntry[]>(
     []
   );
-
-  const broadcastClientsPingList = useCallback(
-    (channels: Channel[], emitToWorker: (msg: Message) => void) => {
-      const payload = createClientsPingListPayload(channels);
-      if (channels.length === 0) {
-        return;
-      }
-
-      channels.forEach((channel) => {
-        channel.emit("clients_ping_list", payload, { reliable: true });
-      });
-
-      emitToWorker({
-        from: WORKER_SERVER_ID,
-        to: WORKER_SERVER_ID,
-        type: "__clients_ping_list",
-        data: encodePayload(payload),
-        reliable: true,
-      });
-    },
-    [createClientsPingListPayload]
-  );
+  const [gameServer, setGameServer] = useState<HostRuntime>();
 
   useEffect(() => {
     return () => {
       gameServer?.dispose();
     };
   }, [gameServer]);
-
-  useEffect(() => {
-    if (!isHosting || !gameServer) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setClients((currentClients) => {
-        if (currentClients.length === 0) {
-          return currentClients;
-        }
-        const refreshedClients = [...currentClients];
-        gameServer.emitToWorkerClientsPingList(refreshedClients);
-        return refreshedClients;
-      });
-    }, 500);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [gameServer, isHosting]);
 
   const handleHostGame = async () => {
     const serverId = await createHostChannelId();
@@ -121,91 +196,48 @@ function Host() {
     workerAdapter.clientIds.add(WORKER_SERVER_ID);
     router.registerAdapter(workerAdapter);
 
-    const emitToWorker = (message: Message) => {
-      router.sendMessage(message);
+    // Send __init to worker with serverId (must happen before joinGame
+    // so the worker is ready to handle __client_connected)
+    const initMessage: Message = {
+      from: serverId,
+      to: WORKER_SERVER_ID,
+      type: "__init",
+      data: encodePayload({ serverId }),
+      reliable: true,
     };
+    router.sendMessage(initMessage);
+
+    // Connect host as a regular game client through the router
+    const hostClient = await joinGame({
+      serverId,
+      createAdapterSession: ({ clientId }) =>
+        createLocalClientAdapterSession({
+          clientId,
+          targetId: WORKER_SERVER_ID,
+          hostRouter: router,
+        }),
+    });
+
+    hostClient.on("clients_ping_list", (data: ClientsPingListPayload) => {
+      setClientPingList(data.clients);
+    });
 
     const manager = createServerWebRTCAdapterManager({ serverId });
 
     manager.onConnection = (session) => {
       const remoteId = session.remoteId;
-      router.registerAdapter(session.adapter);
 
-      const emitter = mitt<Record<string, unknown>>();
-      let onDisconnectHandler: ((clientId: string) => void) | undefined;
+      // Create a bridge adapter for this client
+      const bridgeAdapter = createClientBridgeAdapter(
+        `bridge:${remoteId}`,
+        remoteId,
+        (msg, opts) => session.sendJSON(msg, opts),
+        (msg, opts) => session.sendRaw(msg, opts)
+      );
+      router.registerAdapter(bridgeAdapter);
 
-      const channel: Channel = {
-        clientId: remoteId,
-        latency: -1,
-        on(
-          type: string,
-          handler:
-            | ((from: string, type: string, data: unknown) => void)
-            | ((from: string, data: unknown) => void)
-        ) {
-          if (type === "*") {
-            emitter.on(type, (eventType, data) => {
-              if (eventType !== "pong") {
-                handler(remoteId, eventType, data);
-              }
-            });
-          } else {
-            emitter.on(type, (data) =>
-              (handler as (from: string, data: unknown) => void)(remoteId, data)
-            );
-          }
-        },
-        emit(ev, data, options) {
-          const routingMessage: Message = {
-            from: WORKER_SERVER_ID,
-            to: remoteId,
-            type: ev,
-            data: encodePayload(data),
-            reliable: options?.reliable ?? true,
-          };
-          router.sendMessage(routingMessage);
-        },
-        emitRaw(data, options) {
-          const routingMessage: Message = {
-            from: WORKER_SERVER_ID,
-            to: remoteId,
-            type: "raw",
-            data,
-            reliable: options?.reliable ?? true,
-          };
-          router.sendMessage(routingMessage);
-        },
-        onDisconnect(handler) {
-          onDisconnectHandler = handler;
-        },
-      };
-
-      const ping = () => {
-        channel.emit("ping", { time: Date.now() }, { reliable: true });
-      };
-
-      channel.on("pong", (_, data: { time: number }) => {
-        const latency = Date.now() - data.time;
-        if (channel.latency < 0) {
-          channel.latency = latency;
-        } else {
-          channel.latency = 0.6 * channel.latency + 0.4 * latency;
-        }
-      });
-
-      const pingInterval = setInterval(ping, 500);
-
+      // Forward incoming WebRTC messages from this client to the worker
       session.onMessage = (json) => {
-        if (isRoutingEnvelope(json.data)) {
-          const payload = decodeRoutingEnvelopePayload(json.data);
-          if (payload !== undefined) {
-            emitter.emit(json.t, payload);
-          }
-          return;
-        }
-
-        emitter.emit(json.t, json.data);
-
         const routedMessage: Message = {
           from: remoteId,
           to: WORKER_SERVER_ID,
@@ -213,59 +245,38 @@ function Host() {
           data: encodePayload(json.data),
           reliable: true,
         };
-        emitToWorker(routedMessage);
+        router.sendMessage(routedMessage);
       };
 
       session.onDisconnected = () => {
-        clearInterval(pingInterval);
-        router.adapters.delete(session.adapter.id);
-        emitToWorker({
+        router.adapters.delete(bridgeAdapter.id);
+        router.routes.delete(remoteId);
+        // Notify worker about disconnection
+        const disconnectMsg: Message = {
           from: remoteId,
           to: WORKER_SERVER_ID,
           type: "__client_disconnected",
           data: encodePayload({ clientId: remoteId }),
           reliable: true,
-        });
-        onDisconnectHandler?.(remoteId);
+        };
+        router.sendMessage(disconnectMsg);
       };
 
-      emitToWorker({
+      // Notify worker about new connection
+      const connectMsg: Message = {
         from: remoteId,
         to: WORKER_SERVER_ID,
         type: "__client_connected",
         data: encodePayload({ clientId: remoteId }),
         reliable: true,
-      });
-
-      setClients((currentClients) => {
-        const nextClients = [channel, ...currentClients];
-        broadcastClientsPingList(nextClients, emitToWorker);
-        return nextClients;
-      });
-
-      channel.onDisconnect((clientId) => {
-        setClients((currentClients) => {
-          const nextClients = currentClients.filter(
-            (client) => client.clientId !== clientId
-          );
-          broadcastClientsPingList(nextClients, emitToWorker);
-          return nextClients;
-        });
-      });
-      channel.on("*", (from, type, data) =>
-        setMessages((msgs) => [
-          ...msgs,
-          `${from}: ${type}: ${JSON.stringify(data)}`,
-        ])
-      );
+      };
+      router.sendMessage(connectMsg);
     };
 
-    const hostRuntime = {
+    const hostRuntime: HostRuntime = {
       serverId,
-      emitToWorkerClientsPingList(channels: Channel[]) {
-        broadcastClientsPingList(channels, emitToWorker);
-      },
       dispose() {
+        hostClient.dispose();
         manager.dispose();
         worker.terminate();
       },
@@ -319,15 +330,15 @@ function Host() {
 
             <div className="bg-[var(--color-bg-primary)] rounded-lg shadow p-4 transition-colors duration-200">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3 transition-colors duration-200">
-                Connected Clients ({clients.length})
+                Connected Clients ({clientPingList.length})
               </h2>
-              {clients.length === 0 ? (
+              {clientPingList.length === 0 ? (
                 <p className="text-[var(--color-text-secondary)] text-sm text-center py-4 transition-colors duration-200">
                   No clients connected yet. Share your game code to get started!
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {clients.map((client) => (
+                  {clientPingList.map((client) => (
                     <div
                       key={client.clientId}
                       className="bg-[var(--color-bg-tertiary)] rounded-lg p-3 flex items-center justify-between transition-colors duration-200"
@@ -339,9 +350,9 @@ function Host() {
                       </div>
                       <div className="text-sm text-[var(--color-text-secondary)] transition-colors duration-200">
                         Ping:{" "}
-                        {client.latency < 0
+                        {client.pingMs === null
                           ? "N/A"
-                          : `${client.latency.toFixed(2)}ms`}
+                          : `${client.pingMs.toFixed(2)}ms`}
                       </div>
                     </div>
                   ))}
