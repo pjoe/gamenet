@@ -63,16 +63,22 @@ At startup, `src/gamenet/index.ts` selects a default signal server implementatio
 - `signal_server_local_server.ts`
   - Node/WebSocket reference signaling server for local development.
 
-### Routing submodule (separate abstraction)
+### Routing submodule integration
 
 `src/gamenet/routing/*` defines a generic in-process routing model:
 
 - `client.ts`: generic message endpoint (`Client`).
 - `adapter.ts`: adapter abstraction (can wrap workers).
+- `adapter_webrtc.ts`: WebRTC adapter for remote peer communication (internal, not publicly exported).
 - `router.ts`: route table + adapter/client registration and forwarding.
 - `message.ts`: binary message shape (`ArrayBuffer`, `reliable` flag).
 
-This routing module is currently orthogonal to `hostGame` / `joinGame` flows.
+**Integration status**: 
+- Routing infrastructure is now wired into `hostGame` and `joinGame` runtime
+- Each `GameServer` creates a `Router` and `WebRTCAdapter` per connected peer
+- Each `GameClient` creates a `Router` and `WebRTCAdapter` for server connection
+- Routing messages coexist with existing non-routing messages on data channels
+- **Not exported**: Routing API is internal and not exposed from `src/gamenet/index.ts`
 
 ### Experimental / unused
 
@@ -113,33 +119,44 @@ sequenceDiagram
 ### Host side (`GameServer`)
 
 - Subscribes on `serverId` signaling topic/channel.
+- Creates a `Router` instance for message routing.
 - For each joiner:
   - responds `joined`,
   - creates a `PeerConn` on offer,
-  - tracks connection in `peerConns` and `dcMap`.
+  - creates a `WebRTCAdapter` and registers it with router,
+  - tracks connection in `peerConns`, `dcMap`, and `adapters`.
 - Creates a per-client `Channel` abstraction with:
   - `on(type|"*")`
   - `emit(...)` / `emitRaw(...)`
   - `onDisconnect(...)`
 - Sends periodic pings every 500 ms and maintains smoothed latency estimate.
+- Data channel handlers check for routing messages and pass them to adapter.
+- Cleans up adapter routes on peer disconnect.
 
 ### Client side (`GameClient`)
 
 - Subscribes on generated `clientId` signaling channel.
+- Creates a `Router` instance for message routing.
 - Sends initial `join` to `serverId`.
 - On `joined`, creates offer and completes negotiation.
 - On connect:
+  - creates a `WebRTCAdapter` and registers it with router,
   - unsubscribes from signaling,
-  - binds data channel handlers,
+  - binds data channel handlers (with routing support),
   - sends reliable `{t:"join"}` event,
   - auto-responds to host `ping` with `pong`.
+- Cleans up adapter on disconnect.
 
 ## Data and event model
 
 Game payloads are sent as JSON envelopes over data channels:
 
-- outbound: `{ t: string, data: unknown }`
-- inbound: parsed then emitted through `mitt` under event name `t`.
+- **Standard messages**: `{ t: string, data: unknown }`
+  - Parsed and emitted through `mitt` under event name `t`
+- **Routing messages**: `{ t: string, data: { from: string, to: string, payload: string } }`
+  - Detected by structure and routed through `WebRTCAdapter` to `Router`
+  - Payload is base64-encoded ArrayBuffer
+  - Compatible with existing message flow (both types coexist)
 
 Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameClient`.
 
@@ -147,7 +164,7 @@ Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameC
 
 1. **Signal transport**: implement `SignalServer` and call `selectSignalServer(...)`.
 2. **Message encoding**: replace JSON envelopes with binary codecs (see `msgpack.ts` prototype).
-3. **Routing integration**: use `routing/` abstractions to bridge worker/local/remote endpoints.
+3. **Routing API exposure**: export routing module from `src/gamenet/index.ts` when ready for public use.
 4. **ICE config**: extend `iceServers` in `peer_conn.ts` for NAT traversal.
 
 ## Notable implementation characteristics
@@ -156,6 +173,8 @@ Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameC
 - Two-channel design allows reliability tradeoffs per message.
 - `extraLatency` is a useful deterministic network simulation hook on client side.
 - Host ping interval is created per connection and not currently cleared on disconnect/dispose.
+- Routing infrastructure is wired internally but not exposed in public API.
+- Routing and non-routing messages coexist on same data channels without interference.
 
 ## File index
 
@@ -166,6 +185,14 @@ Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameC
 - `src/gamenet/peer_conn.ts`
 - `src/gamenet/signal_server.ts`
 - `src/gamenet/signal_server_mqtt.ts`
+- `src/gamenet/signal_server_local.ts`
+- `src/gamenet/signal_server_local_server.ts`
+- `src/gamenet/routing/client.ts`
+- `src/gamenet/routing/adapter.ts`
+- `src/gamenet/routing/adapter_webrtc.ts` (internal, not exported)
+- `src/gamenet/routing/router.ts`
+- `src/gamenet/routing/message.ts`
+- `src/gamenet/msgpack.ts`
 - `src/gamenet/signal_server_local.ts`
 - `src/gamenet/signal_server_local_server.ts`
 - `src/gamenet/routing/client.ts`
