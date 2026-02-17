@@ -2,14 +2,15 @@
 import mitt from "mitt";
 import { createHostChannelId } from "./channel";
 import {
-  createServerWebRTCAdapterManager,
-  ServerWebRTCAdapterSession,
-  WebRTCAdapter,
-  WebRTCSendOptions,
-} from "./routing/adapter_webrtc";
+  Adapter,
+  SendOptions,
+  ServerAdapterManager,
+  ServerAdapterSession,
+} from "./routing/adapter";
+import { createServerWebRTCAdapterManager } from "./routing/adapter_webrtc";
 import { createRouter, Router } from "./routing/router";
 
-type EmitOptions = WebRTCSendOptions;
+type EmitOptions = SendOptions;
 
 type Events = Record<string, unknown>;
 
@@ -28,23 +29,29 @@ export interface Channel {
 
 export interface GameServer {
   serverId: string;
-  sessions: Map<string, ServerWebRTCAdapterSession>;
+  sessions: Map<string, ServerAdapterSession>;
   router: Router;
-  adapters: Map<string, WebRTCAdapter>;
+  adapters: Map<string, Adapter>;
   onConnection: (handler: (channel: Channel) => void) => void;
   dispose: () => void;
 }
 
-export async function hostGame(): Promise<GameServer> {
+export interface HostGameArgs {
+  createAdapterManager?: (args: { serverId: string }) => ServerAdapterManager;
+}
+
+export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
   const serverId = await createHostChannelId();
   let onConnectionHandler: (channel: Channel) => void;
-  const manager = createServerWebRTCAdapterManager({ serverId });
+  const manager =
+    args.createAdapterManager?.({ serverId }) ??
+    createServerWebRTCAdapterManager({ serverId });
   const router = createRouter(serverId);
   const server: GameServer = {
     serverId,
     sessions: manager.sessions,
     router,
-    adapters: new Map<string, WebRTCAdapter>(),
+    adapters: new Map<string, Adapter>(),
     onConnection(handler) {
       onConnectionHandler = handler;
     },
@@ -53,7 +60,7 @@ export async function hostGame(): Promise<GameServer> {
     },
   };
 
-  manager.onConnection = (session) => {
+  manager.onConnection = (session: ServerAdapterSession) => {
     const remoteId = session.remoteId;
     server.adapters.set(remoteId, session.adapter);
     server.router.registerAdapter(session.adapter);
@@ -61,7 +68,7 @@ export async function hostGame(): Promise<GameServer> {
     const emitter = mitt<Events>();
     let onDisconnectHandler: (clientId: string) => void;
 
-    session.onMessage = (json) => {
+    session.onMessage = (json: { t: string; data?: unknown }) => {
       emitter.emit(json.t, json.data);
     };
 

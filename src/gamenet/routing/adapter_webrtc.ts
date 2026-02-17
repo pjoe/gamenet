@@ -1,6 +1,13 @@
 import { PeerConn } from "../peer_conn";
 import { getSignalServer, SignalServer } from "../signal_server";
-import { Adapter } from "./adapter";
+import {
+  Adapter,
+  ClientAdapterSession,
+  MessageEnvelope,
+  SendOptions,
+  ServerAdapterManager,
+  ServerAdapterSession,
+} from "./adapter";
 import { Message } from "./message";
 
 type SignalMsg = {
@@ -9,28 +16,18 @@ type SignalMsg = {
   data: unknown;
 };
 
-type Envelope = {
-  t: string;
-  data?: unknown;
-};
+type Envelope = MessageEnvelope;
 
-export type WebRTCSendOptions = {
-  reliable: boolean;
-};
+export type WebRTCSendOptions = SendOptions;
 
 export interface WebRTCAdapter extends Adapter {
   sendJSON: (msg: unknown, options?: WebRTCSendOptions) => void;
 }
 
-export interface ClientWebRTCAdapterSession {
-  adapter?: WebRTCAdapter;
-  onConnected?: (adapter: WebRTCAdapter) => void;
-  onDisconnected?: () => void;
-  onMessage?: (envelope: Envelope) => void;
-  sendJSON: (msg: unknown, options?: WebRTCSendOptions) => void;
-  sendRaw: (msg: ArrayBuffer, options?: WebRTCSendOptions) => void;
-  dispose: () => void;
-}
+export type ClientWebRTCAdapterSession = ClientAdapterSession<
+  WebRTCAdapter,
+  Envelope
+>;
 
 export interface CreateClientWebRTCAdapterSessionArgs {
   clientId: string;
@@ -38,7 +35,7 @@ export interface CreateClientWebRTCAdapterSessionArgs {
   signalServer?: SignalServer;
 }
 
-export interface ServerWebRTCAdapterSession {
+export interface ServerWebRTCAdapterSession extends ServerAdapterSession {
   remoteId: string;
   adapter: WebRTCAdapter;
   onDisconnected?: () => void;
@@ -48,10 +45,9 @@ export interface ServerWebRTCAdapterSession {
   dispose: () => void;
 }
 
-export interface ServerWebRTCAdapterManager {
+export interface ServerWebRTCAdapterManager extends ServerAdapterManager<ServerWebRTCAdapterSession> {
   sessions: Map<string, ServerWebRTCAdapterSession>;
   onConnection?: (session: ServerWebRTCAdapterSession) => void;
-  dispose: () => void;
 }
 
 export interface CreateServerWebRTCAdapterManagerArgs {

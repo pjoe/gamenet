@@ -2,20 +2,22 @@
 import mitt, { Emitter } from "mitt";
 import { createClientChannelId } from "./channel";
 import {
-  createClientWebRTCAdapterSession,
-  WebRTCAdapter,
-  WebRTCSendOptions,
-} from "./routing/adapter_webrtc";
+  Adapter,
+  ClientAdapterSession,
+  MessageEnvelope,
+  SendOptions,
+} from "./routing/adapter";
+import { createClientWebRTCAdapterSession } from "./routing/adapter_webrtc";
 import { createRouter, Router } from "./routing/router";
 
-type EmitOptions = WebRTCSendOptions;
+type EmitOptions = SendOptions;
 type Events = Record<string, any>;
 export interface GameClient {
   serverId: string;
   clientId: string;
   extraLatency: number;
   router: Router;
-  adapter?: WebRTCAdapter;
+  adapter?: Adapter;
   on: Emitter<Events>["on"];
   emit: (ev: string, e: any, options?: EmitOptions) => void;
   emitRaw: (e: ArrayBuffer, options?: EmitOptions) => void;
@@ -24,19 +26,28 @@ export interface GameClient {
   dispose: () => void;
 }
 
-interface joinGameArgs {
+export interface JoinGameArgs {
   serverId: string;
   extraLatency?: number;
+  createAdapterSession?: (args: {
+    clientId: string;
+    serverId: string;
+  }) => ClientAdapterSession;
 }
 
-export async function joinGame(args: joinGameArgs): Promise<GameClient> {
+export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
   const extraLatency = args.extraLatency ?? 0;
   const clientId = createClientChannelId();
   const router = createRouter(clientId);
-  const session = createClientWebRTCAdapterSession({
-    clientId,
-    serverId: args.serverId,
-  });
+  const session =
+    args.createAdapterSession?.({
+      clientId,
+      serverId: args.serverId,
+    }) ??
+    createClientWebRTCAdapterSession({
+      clientId,
+      serverId: args.serverId,
+    });
   const emitter = mitt<Events>();
   let onConnectedHandler: () => void;
   let onDisconnectedHandler: () => void;
@@ -89,7 +100,7 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
     },
   };
 
-  session.onConnected = (adapter) => {
+  session.onConnected = (adapter: Adapter) => {
     gameClient.adapter = adapter;
     gameClient.router.registerAdapter(adapter);
     emitter.on("ping", (data: { time: number }) => {
@@ -98,7 +109,7 @@ export async function joinGame(args: joinGameArgs): Promise<GameClient> {
     onConnectedHandler?.();
   };
 
-  session.onMessage = (json) => {
+  session.onMessage = (json: MessageEnvelope) => {
     if (gameClient.extraLatency > 0) {
       setTimeout(
         () => emitter.emit(json.t, json.data),
