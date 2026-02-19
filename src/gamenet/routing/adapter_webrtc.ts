@@ -1,3 +1,7 @@
+import {
+  decode as decodeMsgpack,
+  encode as encodeMsgpack,
+} from "@msgpack/msgpack";
 import { PeerConn } from "../peer_conn";
 import { getSignalServer, SignalServer } from "../signal_server";
 import {
@@ -18,11 +22,19 @@ type SignalMsg = {
 
 type Envelope = MessageEnvelope;
 
+type RoutingWireMessage = {
+  from: string;
+  to: string;
+  type: string;
+  reliable: boolean;
+  data: Uint8Array;
+};
+
+const EMPTY_BUFFER = new ArrayBuffer(0);
+
 export type WebRTCSendOptions = SendOptions;
 
-export interface WebRTCAdapter extends Adapter {
-  sendJSON: (msg: unknown, options?: WebRTCSendOptions) => void;
-}
+export type WebRTCAdapter = Adapter;
 
 export type ClientWebRTCAdapterSession = ClientAdapterSession<
   WebRTCAdapter,
@@ -40,7 +52,7 @@ export interface ServerWebRTCAdapterSession extends ServerAdapterSession {
   adapter: WebRTCAdapter;
   onDisconnected?: () => void;
   onMessage?: (envelope: Envelope) => void;
-  sendJSON: (msg: unknown, options?: WebRTCSendOptions) => void;
+  sendMessage: (msg: Envelope, options?: WebRTCSendOptions) => void;
   sendRaw: (msg: ArrayBuffer, options?: WebRTCSendOptions) => void;
   dispose: () => void;
 }
@@ -55,154 +67,129 @@ export interface CreateServerWebRTCAdapterManagerArgs {
   signalServer?: SignalServer;
 }
 
-/**
- * Creates a WebRTC adapter that bridges routing messages to/from a PeerConn.
- *
- * Outbound: routing Message -> WebRTC data channel envelope { t, data }
- * - Maps Message.type to envelope.t
- * - Converts Message.data (ArrayBuffer) to base64 string for JSON transport
- * - Selects reliable/unreliable channel based on Message.reliable
- *
- * Inbound: WebRTC envelope -> routing Message
- * - Extracts type from envelope.t
- * - Decodes base64 data back to ArrayBuffer
- * - Routes to local clients via adapter.emitMessage
- *
- * @param id - Local adapter identifier (typically local client/server ID)
- * @param remoteId - Remote peer identifier (typically remote client/server ID)
- * @param peerConn - Established PeerConn instance
- */
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return data.buffer.slice(
+    data.byteOffset,
+    data.byteOffset + data.byteLength
+  ) as ArrayBuffer;
+}
+
+function encodeRoutingWireMessage(message: Message): ArrayBuffer {
+  const payload: RoutingWireMessage = {
+    from: message.from,
+    to: message.to,
+    type: message.type,
+    reliable: message.reliable,
+    data: new Uint8Array(message.data),
+  };
+  return toArrayBuffer(encodeMsgpack(payload));
+}
+
+function decodeRoutingWireMessage(
+  payload: ArrayBuffer,
+  fallbackReliable: boolean
+): Message | undefined {
+  try {
+    const decoded = decodeMsgpack(
+      new Uint8Array(payload)
+    ) as Partial<RoutingWireMessage>;
+    let decodedData: ArrayBuffer | undefined;
+    if (decoded.data instanceof Uint8Array) {
+      decodedData = toArrayBuffer(decoded.data);
+    } else if (decoded.data instanceof ArrayBuffer) {
+      decodedData = decoded.data;
+    } else if (ArrayBuffer.isView(decoded.data)) {
+      const view = new Uint8Array(
+        decoded.data.buffer,
+        decoded.data.byteOffset,
+        decoded.data.byteLength
+      );
+      decodedData = toArrayBuffer(view);
+    }
+
+    if (
+      typeof decoded.from !== "string" ||
+      typeof decoded.to !== "string" ||
+      typeof decoded.type !== "string" ||
+      !decodedData
+    ) {
+      return undefined;
+    }
+
+    return {
+      from: decoded.from,
+      to: decoded.to,
+      type: decoded.type,
+      data: decodedData,
+      reliable:
+        typeof decoded.reliable === "boolean"
+          ? decoded.reliable
+          : fallbackReliable,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export function createWebRTCAdapter(
   id: string,
   remoteId: string,
-  sendJSON: (msg: unknown, options?: WebRTCSendOptions) => void
+  sendRawFrame: (msg: ArrayBuffer, options?: WebRTCSendOptions) => void
 ): WebRTCAdapter {
   const adapter: WebRTCAdapter = {
     id,
-    sendJSON,
     clientIds: new Set<string>([remoteId]),
     receiveMessage(message: Message) {
-      // Handle outbound message from router to remote peer
-      if (this.onReceiveMessage) {
-        this.onReceiveMessage(message);
-      }
-
-      // Convert ArrayBuffer to base64 for JSON transport
-      const base64Data = arrayBufferToBase64(message.data);
-
-      // Create envelope compatible with existing { t, data } format
-      const envelope = {
-        t: message.type,
-        data: {
-          from: message.from,
-          to: message.to,
-          payload: base64Data,
-        },
-      };
-
-      // Send over appropriate channel based on reliability
-      sendJSON(envelope, { reliable: message.reliable });
+      this.onReceiveMessage?.(message);
+      sendRawFrame(encodeRoutingWireMessage(message), {
+        reliable: message.reliable,
+      });
     },
     emitMessage(message: Message) {
-      if (this.onEmitMessage) {
-        this.onEmitMessage(message);
-      }
+      this.onEmitMessage?.(message);
     },
   };
 
   return adapter;
 }
 
-/**
- * Handles incoming WebRTC messages and converts them to routing Messages.
- * Should be called from data channel onmessage handlers.
- *
- * @param adapter - The WebRTC adapter instance
- * @param envelope - Parsed JSON envelope from data channel
- * @param reliable - Whether message came from reliable channel
- */
-export function handleIncomingWebRTCMessage(
-  adapter: WebRTCAdapter,
-  envelope: Envelope,
-  reliable: boolean
-) {
-  // Check if this is a routing message (has routing-specific structure)
-  if (
-    envelope.data &&
-    typeof envelope.data === "object" &&
-    "from" in envelope.data &&
-    "to" in envelope.data &&
-    "payload" in envelope.data
-  ) {
-    const data = envelope.data as {
-      from: unknown;
-      to: unknown;
-      payload: unknown;
-    };
-
-    // Validate that fields are strings
-    if (
-      typeof data.from === "string" &&
-      typeof data.to === "string" &&
-      typeof data.payload === "string"
-    ) {
-      try {
-        // Decode base64 payload back to ArrayBuffer
-        const arrayBuffer = base64ToArrayBuffer(data.payload);
-
-        // Create routing Message
-        const message: Message = {
-          from: data.from,
-          to: data.to,
-          type: envelope.t,
-          data: arrayBuffer,
-          reliable,
-        };
-
-        // Emit to router for routing to destination
-        adapter.emitMessage(message);
-      } catch (error) {
-        console.warn("Failed to decode routing message:", error);
-      }
-    }
-  }
-  // If not a routing message, ignore it (preserves existing non-routing behavior)
-}
-
 function bindPeerDataChannels(
   peer: PeerConn,
-  onEnvelope: (envelope: Envelope, reliable: boolean) => void,
+  onPayload: (payload: ArrayBuffer, reliable: boolean) => void,
   onClose: () => void
 ) {
+  let closed = false;
   const onMsg = (ev: MessageEvent<unknown>) => {
     const dc = ev.target as RTCDataChannel;
-    if (ev.data && typeof ev.data === "object" && "t" in ev.data) {
-      const isReliable = dc === peer.dcReliable;
-      onEnvelope(ev.data as Envelope, isReliable);
+    const isReliable = dc === peer.dcReliable;
+
+    if (ev.data instanceof ArrayBuffer) {
+      onPayload(ev.data, isReliable);
       return;
     }
 
-    let data: string | undefined;
-    if (typeof ev.data === "string") {
-      data = ev.data;
-    } else if (ev.data instanceof ArrayBuffer) {
-      data = new TextDecoder().decode(new Uint8Array(ev.data));
-    } else if (ArrayBuffer.isView(ev.data)) {
-      data = new TextDecoder().decode(ev.data);
+    if (ArrayBuffer.isView(ev.data)) {
+      const view = new Uint8Array(
+        ev.data.buffer,
+        ev.data.byteOffset,
+        ev.data.byteLength
+      );
+      onPayload(toArrayBuffer(view), isReliable);
+      return;
     }
 
-    if (!data) {
-      return;
-    }
-    try {
-      const json = JSON.parse(data) as Envelope;
-      const isReliable = dc === peer.dcReliable;
-      onEnvelope(json, isReliable);
-    } catch {
-      return;
-    }
+    console.warn("Unsupported RTC payload type", {
+      type: typeof ev.data,
+      ctor: (ev.data as { constructor?: { name?: string } })?.constructor?.name,
+    });
   };
-  const handleClose = () => onClose();
+  const handleClose = () => {
+    if (closed) {
+      return;
+    }
+    closed = true;
+    onClose();
+  };
 
   if (peer.dc) {
     peer.dc.onmessage = onMsg;
@@ -235,11 +222,29 @@ export function createClientWebRTCAdapterSession(
 
   const session: ClientWebRTCAdapterSession = {
     adapter: undefined,
-    sendJSON(msg, options) {
-      peerConn?.sendJSON(msg, options);
+    sendMessage(msg, options) {
+      const routingMessage: Message = {
+        from: args.clientId,
+        to: args.serverId,
+        type: msg.t,
+        data: msg.data,
+        reliable: options?.reliable ?? true,
+      };
+      peerConn?.sendRaw(encodeRoutingWireMessage(routingMessage), {
+        reliable: routingMessage.reliable,
+      });
     },
     sendRaw(msg, options) {
-      peerConn?.sendRaw(msg, options);
+      const routingMessage: Message = {
+        from: args.clientId,
+        to: args.serverId,
+        type: "raw",
+        data: msg,
+        reliable: options?.reliable ?? true,
+      };
+      peerConn?.sendRaw(encodeRoutingWireMessage(routingMessage), {
+        reliable: routingMessage.reliable,
+      });
     },
     dispose() {
       if (disposed) {
@@ -272,18 +277,30 @@ export function createClientWebRTCAdapterSession(
           const adapter = createWebRTCAdapter(
             args.clientId,
             args.serverId,
-            (m, o) => peer.sendJSON(m, o)
+            (m, o) => peer.sendRaw(m, o)
           );
           session.adapter = adapter;
 
           bindPeerDataChannels(
             peer,
-            (envelope, reliable) => {
+            (payload, reliable) => {
               if (!session.adapter) {
                 return;
               }
-              handleIncomingWebRTCMessage(session.adapter, envelope, reliable);
-              session.onMessage?.(envelope);
+              const routingMessage = decodeRoutingWireMessage(
+                payload,
+                reliable
+              );
+              if (!routingMessage) {
+                return;
+              }
+              if (routingMessage.to !== args.clientId) {
+                session.adapter.emitMessage(routingMessage);
+              }
+              session.onMessage?.({
+                t: routingMessage.type,
+                data: routingMessage.data,
+              });
             },
             () => {
               cleanupAdapter();
@@ -291,7 +308,10 @@ export function createClientWebRTCAdapterSession(
             }
           );
 
-          peer.sendJSON({ t: "join" }, { reliable: true });
+          session.sendMessage(
+            { t: "join", data: EMPTY_BUFFER },
+            { reliable: true }
+          );
           session.onConnected?.(adapter);
         };
         peerConn.offer();
@@ -359,17 +379,35 @@ export function createServerWebRTCAdapterManager(
         peer.onConnected = (connectedPeer) => {
           const adapterId = `${args.serverId}:${remoteId}`;
           const adapter = createWebRTCAdapter(adapterId, remoteId, (m, o) =>
-            connectedPeer.sendJSON(m, o)
+            connectedPeer.sendRaw(m, o)
           );
 
           const session: ServerWebRTCAdapterSession = {
             remoteId,
             adapter,
-            sendJSON(message, options) {
-              connectedPeer.sendJSON(message, options);
+            sendMessage(message, options) {
+              const routingMessage: Message = {
+                from: args.serverId,
+                to: remoteId,
+                type: message.t,
+                data: message.data,
+                reliable: options?.reliable ?? true,
+              };
+              connectedPeer.sendRaw(encodeRoutingWireMessage(routingMessage), {
+                reliable: routingMessage.reliable,
+              });
             },
             sendRaw(message, options) {
-              connectedPeer.sendRaw(message, options);
+              const routingMessage: Message = {
+                from: args.serverId,
+                to: remoteId,
+                type: "raw",
+                data: message,
+                reliable: options?.reliable ?? true,
+              };
+              connectedPeer.sendRaw(encodeRoutingWireMessage(routingMessage), {
+                reliable: routingMessage.reliable,
+              });
             },
             dispose() {
               if (session.adapter.onClientRemove) {
@@ -383,9 +421,21 @@ export function createServerWebRTCAdapterManager(
 
           bindPeerDataChannels(
             connectedPeer,
-            (envelope, reliable) => {
-              handleIncomingWebRTCMessage(adapter, envelope, reliable);
-              session.onMessage?.(envelope);
+            (payload, reliable) => {
+              const routingMessage = decodeRoutingWireMessage(
+                payload,
+                reliable
+              );
+              if (!routingMessage) {
+                return;
+              }
+              if (routingMessage.to !== args.serverId) {
+                adapter.emitMessage(routingMessage);
+              }
+              session.onMessage?.({
+                t: routingMessage.type,
+                data: routingMessage.data,
+              });
             },
             () => {
               if (session.adapter.onClientRemove) {
@@ -411,28 +461,4 @@ export function createServerWebRTCAdapterManager(
   });
 
   return manager;
-}
-
-/**
- * Utility: Convert ArrayBuffer to base64 string
- */
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-/**
- * Utility: Convert base64 string to ArrayBuffer
- */
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
 }

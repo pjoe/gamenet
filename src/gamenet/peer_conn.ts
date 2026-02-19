@@ -15,6 +15,7 @@ export class PeerConn {
   public dcReliable?: RTCDataChannel;
   public onConnected?: (peerConn: PeerConn) => void;
   private incomingIceCandidates: RTCIceCandidate[] = [];
+  private didEmitConnected = false;
 
   constructor(
     private signaling: Signaling,
@@ -29,6 +30,7 @@ export class PeerConn {
     this.pc.ondatachannel = (ev) => {
       console.log("ondatachannel", ev);
       const dc = ev.channel;
+      dc.binaryType = "arraybuffer";
       dc.onopen = this.onDcOpen;
       if (dc.label === "unreliable") {
         this.dc = dc;
@@ -61,11 +63,13 @@ export class PeerConn {
 
   public async offer() {
     this.dcReliable = this.pc.createDataChannel("reliable", { ordered: true });
+    this.dcReliable.binaryType = "arraybuffer";
     this.dcReliable.onopen = this.onDcOpen;
     this.dc = this.pc.createDataChannel("unreliable", {
       ordered: false,
       maxRetransmits: 0,
     });
+    this.dc.binaryType = "arraybuffer";
     this.dc.onopen = this.onDcOpen;
     const offer = await this.pc.createOffer();
     console.log("offer", offer);
@@ -99,12 +103,14 @@ export class PeerConn {
     const dc = ev.target as RTCDataChannel;
     console.log("dc.onopen", dc);
     if (
+      !this.didEmitConnected &&
       this.dc &&
       this.dc.readyState === "open" &&
       this.dcReliable &&
       this.dcReliable.readyState === "open" &&
       this.onConnected
     ) {
+      this.didEmitConnected = true;
       this.onConnected(this);
     }
   };

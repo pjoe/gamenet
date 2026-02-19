@@ -54,24 +54,11 @@ export interface WorkerServerAdapterManagerResult {
   handleMessage: (message: Message) => void;
 }
 
-function encodePayload(data: unknown): ArrayBuffer {
-  return new TextEncoder().encode(JSON.stringify(data)).buffer as ArrayBuffer;
-}
-
-function decodePayload<T = unknown>(data: ArrayBuffer): T | undefined {
-  try {
-    const text = new TextDecoder().decode(new Uint8Array(data));
-    return JSON.parse(text) as T;
-  } catch {
-    return undefined;
-  }
-}
-
 /**
  * Creates a ServerAdapterManager that runs inside a Web Worker.
  * The main thread sends control messages (__client_connected, __client_disconnected)
  * and game messages through postMessage. Each client gets a ServerAdapterSession
- * whose sendJSON/sendRaw post Messages back to the main thread.
+ * whose sendMessage/sendRaw post Messages back to the main thread.
  */
 export function createWorkerServerAdapterManager(
   args: WorkerServerAdapterManagerArgs
@@ -104,13 +91,12 @@ export function createWorkerServerAdapterManager(
     const session: ServerAdapterSession = {
       remoteId: clientId,
       adapter,
-      sendJSON(msg: unknown, options?: SendOptions) {
-        const envelope = msg as MessageEnvelope;
+      sendMessage(msg: MessageEnvelope, options?: SendOptions) {
         const message: Message = {
           from: serverId,
           to: clientId,
-          type: envelope.t,
-          data: encodePayload(envelope.data),
+          type: msg.t,
+          data: msg.data,
           reliable: options?.reliable ?? true,
         };
         postMessage(message, [message.data]);
@@ -158,8 +144,7 @@ export function createWorkerServerAdapterManager(
     // Regular game message — dispatch to the appropriate session
     const session = sessions.get(message.from);
     if (session) {
-      const decoded = decodePayload(message.data);
-      session.onMessage?.({ t: message.type, data: decoded });
+      session.onMessage?.({ t: message.type, data: message.data });
     }
   }
 

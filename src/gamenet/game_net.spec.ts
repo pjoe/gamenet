@@ -42,10 +42,8 @@ function waitForServerEvent(
 ): Promise<unknown> {
   return withTimeout(
     new Promise((resolve) => {
-      channel.on("*", (_, type, data) => {
-        if (type === eventName) {
-          resolve(data);
-        }
+      channel.on(eventName, (_, data) => {
+        resolve(data);
       });
     })
   );
@@ -57,10 +55,8 @@ function waitForClientEvent(
 ): Promise<unknown> {
   return withTimeout(
     new Promise((resolve) => {
-      client.on("*", (type, data) => {
-        if (type === eventName) {
-          resolve(data);
-        }
+      client.on(eventName, (data) => {
+        resolve(data);
       });
     })
   );

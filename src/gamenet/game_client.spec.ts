@@ -1,7 +1,12 @@
 import { jest } from "@jest/globals";
 import { GameClient, joinGame } from "./game_client";
-import { Adapter, ClientAdapterSession } from "./routing/adapter";
+import {
+  Adapter,
+  ClientAdapterSession,
+  MessageEnvelope,
+} from "./routing/adapter";
 import { Message } from "./routing/message";
+import { defaultPayloadSerde } from "./serde";
 
 function createMockAdapter(id: string, remoteId: string): Adapter {
   return {
@@ -16,11 +21,11 @@ function createMockAdapter(id: string, remoteId: string): Adapter {
 
 describe("joinGame", () => {
   it("supports injected transport session with non-WebRTC adapter", async () => {
-    const sendJSON = jest.fn();
+    const sendMessage = jest.fn();
     const sendRaw = jest.fn();
 
     const session: ClientAdapterSession = {
-      sendJSON,
+      sendMessage,
       sendRaw,
       dispose: jest.fn(),
     };
@@ -49,21 +54,35 @@ describe("joinGame", () => {
     expect(onConnected).toHaveBeenCalled();
 
     gameClient.emit("from_client", { source: "client" }, { reliable: true });
-    expect(sendJSON).toHaveBeenCalledWith(
-      { t: "from_client", data: { source: "client" } },
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "from_client",
+        data: expect.any(ArrayBuffer),
+      }),
       { reliable: true }
     );
+    const sentEnvelope = sendMessage.mock.calls.at(-1)?.[0] as MessageEnvelope;
+    expect(defaultPayloadSerde.decode(sentEnvelope.data)).toEqual({
+      source: "client",
+    });
 
     gameClient.emitRaw(new ArrayBuffer(0), { reliable: false });
     expect(sendRaw).toHaveBeenCalledWith(expect.any(ArrayBuffer), {
       reliable: false,
     });
 
-    session.onMessage?.({ t: "ping", data: { time: 123 } });
-    expect(sendJSON).toHaveBeenCalledWith(
-      { t: "pong", data: { time: 123 } },
+    session.onMessage?.({
+      t: "ping",
+      data: defaultPayloadSerde.encode({ time: 123 }),
+    });
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ t: "pong", data: expect.any(ArrayBuffer) }),
       undefined
     );
+    const pongEnvelope = sendMessage.mock.calls.at(-1)?.[0] as MessageEnvelope;
+    expect(defaultPayloadSerde.decode(pongEnvelope.data)).toEqual({
+      time: 123,
+    });
 
     session.onDisconnected?.();
     expect(gameClient.adapter).toBeUndefined();

@@ -9,8 +9,8 @@ import {
 } from "./routing/adapter";
 import { createClientWebRTCAdapterSession } from "./routing/adapter_webrtc";
 import { createClient } from "./routing/client";
-import { decodeRoutingEnvelopePayload } from "./routing/envelope_payload";
 import { createRouter, Router } from "./routing/router";
+import { defaultPayloadSerde, PayloadSerde } from "./serde";
 
 type EmitOptions = SendOptions;
 type Events = Record<string, any>;
@@ -23,6 +23,7 @@ export interface GameClient {
   on: Emitter<Events>["on"];
   emit: (ev: string, e: any, options?: EmitOptions) => void;
   emitRaw: (e: ArrayBuffer, options?: EmitOptions) => void;
+  setExtraLatency: (latency: number) => void;
   onConnected: (handler: () => void) => void;
   onDisconnected: (handler: () => void) => void;
   dispose: () => void;
@@ -31,6 +32,7 @@ export interface GameClient {
 export interface JoinGameArgs {
   serverId: string;
   extraLatency?: number;
+  payloadSerde?: PayloadSerde;
   createAdapterSession?: (args: {
     clientId: string;
     serverId: string;
@@ -39,6 +41,7 @@ export interface JoinGameArgs {
 
 export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
   const extraLatency = args.extraLatency ?? 0;
+  const payloadSerde = args.payloadSerde ?? defaultPayloadSerde;
   const clientId = createClientChannelId();
   const router = createRouter(clientId);
   router.registerClient(createClient(clientId));
@@ -52,8 +55,17 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
       serverId: args.serverId,
     });
   const emitter = mitt<Events>();
+  const wildcardHandlers = new Set<(type: string, data: any) => void>();
   let onConnectedHandler: () => void;
   let onDisconnectedHandler: () => void;
+  const dispatchIncomingMessage = (eventType: string, eventData: any) => {
+    emitter.emit(eventType, eventData);
+    if (eventType !== "ping") {
+      wildcardHandlers.forEach((handler) => {
+        handler(eventType, eventData);
+      });
+    }
+  };
   const gameClient: GameClient = {
     serverId: args.serverId,
     clientId,
@@ -64,22 +76,23 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
       handler: ((type: string, data: any) => void) | ((data: any) => void)
     ) {
       if (type === "*") {
-        emitter.on(type, (type, data) => {
-          // filter out pings
-          if (type !== "ping") handler(type, data);
-        });
+        wildcardHandlers.add(handler as (type: string, data: any) => void);
       } else {
         emitter.on(type, (data) => (handler as (data: any) => void)(data));
       }
     },
     emit(t, data, options?) {
+      const envelope: MessageEnvelope = {
+        t,
+        data: payloadSerde.encode(data),
+      };
       if (this.extraLatency > 0) {
         setTimeout(
-          () => session.sendJSON({ t, data }, options),
+          () => session.sendMessage(envelope, options),
           this.extraLatency * 0.5
         );
       } else {
-        session.sendJSON({ t, data }, options);
+        session.sendMessage(envelope, options);
       }
     },
     emitRaw(data, options?) {
@@ -91,6 +104,9 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
       } else {
         session.sendRaw(data, options);
       }
+    },
+    setExtraLatency(latency) {
+      this.extraLatency = latency;
     },
     onConnected: (handler) => {
       onConnectedHandler = handler;
@@ -113,16 +129,15 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
   };
 
   session.onMessage = (json: MessageEnvelope) => {
-    const decodedPayload = decodeRoutingEnvelopePayload(json.data);
-    const eventData = decodedPayload ?? json.data;
+    const eventData = payloadSerde.decode(json.data);
 
     if (gameClient.extraLatency > 0) {
       setTimeout(
-        () => emitter.emit(json.t, eventData),
+        () => dispatchIncomingMessage(json.t, eventData),
         gameClient.extraLatency * 0.5
       );
     } else {
-      emitter.emit(json.t, eventData);
+      dispatchIncomingMessage(json.t, eventData);
     }
   };
 

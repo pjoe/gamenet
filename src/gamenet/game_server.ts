@@ -4,12 +4,14 @@ import { createHostChannelId } from "./channel";
 import type { ClientsPingListPayload } from "./clients_ping_list";
 import {
   Adapter,
+  MessageEnvelope,
   SendOptions,
   ServerAdapterManager,
   ServerAdapterSession,
 } from "./routing/adapter";
 import { createServerWebRTCAdapterManager } from "./routing/adapter_webrtc";
 import { createRouter, Router } from "./routing/router";
+import { defaultPayloadSerde, PayloadSerde } from "./serde";
 
 type EmitOptions = SendOptions;
 
@@ -39,11 +41,13 @@ export interface GameServer {
 
 export interface HostGameArgs {
   serverId?: string;
+  payloadSerde?: PayloadSerde;
   createAdapterManager?: (args: { serverId: string }) => ServerAdapterManager;
 }
 
 export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
   const serverId = args.serverId ?? (await createHostChannelId());
+  const payloadSerde = args.payloadSerde ?? defaultPayloadSerde;
   let onConnectionHandler: (channel: Channel) => void;
   const manager =
     args.createAdapterManager?.({ serverId }) ??
@@ -88,10 +92,19 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
     server.router.registerAdapter(session.adapter);
 
     const emitter = mitt<Events>();
+    const wildcardHandlers = new Set<
+      (from: string, type: string, data: any) => void
+    >();
     let onDisconnectHandler: (clientId: string) => void;
 
-    session.onMessage = (json: { t: string; data?: unknown }) => {
-      emitter.emit(json.t, json.data);
+    session.onMessage = (json: MessageEnvelope) => {
+      const decoded = payloadSerde.decode(json.data);
+      emitter.emit(json.t, decoded);
+      if (json.t !== "pong") {
+        wildcardHandlers.forEach((handler) => {
+          handler(remoteId, json.t, decoded);
+        });
+      }
     };
 
     const channel: Channel = {
@@ -104,16 +117,22 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
           | ((from: string, data: any) => void)
       ) {
         if (type === "*") {
-          emitter.on(type, (eventType, data) => {
-            if (eventType !== "pong") handler(remoteId, eventType, data);
-          });
+          wildcardHandlers.add(
+            handler as (from: string, type: string, data: any) => void
+          );
         } else {
           emitter.on(type, (data) =>
             (handler as (from: string, data: any) => void)(remoteId, data)
           );
         }
       },
-      emit: (ev, e, options) => session.sendJSON({ t: ev, data: e }, options),
+      emit: (ev, e, options) => {
+        const envelope: MessageEnvelope = {
+          t: ev,
+          data: payloadSerde.encode(e),
+        };
+        session.sendMessage(envelope, options);
+      },
       emitRaw: (e, options) => session.sendRaw(e, options),
       onDisconnect(handler) {
         onDisconnectHandler = handler;

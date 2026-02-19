@@ -14,7 +14,7 @@ export interface SendOptions {
 
 export interface MessageEnvelope {
   t: string;
-  data?: unknown;
+  data: ArrayBuffer;
 }
 
 export interface ClientAdapterSession<
@@ -25,7 +25,7 @@ export interface ClientAdapterSession<
   onConnected?: (adapter: TAdapter) => void;
   onDisconnected?: () => void;
   onMessage?: (envelope: TEnvelope) => void;
-  sendJSON: (msg: unknown, options?: SendOptions) => void;
+  sendMessage: (msg: TEnvelope, options?: SendOptions) => void;
   sendRaw: (msg: ArrayBuffer, options?: SendOptions) => void;
   dispose: () => void;
 }
@@ -35,7 +35,7 @@ export interface ServerAdapterSession {
   adapter: Adapter;
   onDisconnected?: () => void;
   onMessage?: (envelope: MessageEnvelope) => void;
-  sendJSON: (msg: unknown, options?: SendOptions) => void;
+  sendMessage: (msg: MessageEnvelope, options?: SendOptions) => void;
   sendRaw: (msg: ArrayBuffer, options?: SendOptions) => void;
   dispose: () => void;
 }

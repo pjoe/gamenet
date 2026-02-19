@@ -2,10 +2,12 @@ import { jest } from "@jest/globals";
 import { Channel, hostGame } from "./game_server";
 import {
   Adapter,
+  MessageEnvelope,
   ServerAdapterManager,
   ServerAdapterSession,
 } from "./routing/adapter";
 import { Message } from "./routing/message";
+import { defaultPayloadSerde } from "./serde";
 
 function createMockAdapter(id: string, remoteId: string): Adapter {
   return {
@@ -40,12 +42,12 @@ describe("hostGame", () => {
 
     const remoteId = "worker-client-1";
     const adapter = createMockAdapter("worker-adapter-1", remoteId);
-    const sendJSON = jest.fn();
+    const sendMessage = jest.fn();
     const sendRaw = jest.fn();
     const session: ServerAdapterSession = {
       remoteId,
       adapter,
-      sendJSON,
+      sendMessage,
       sendRaw,
       dispose: jest.fn(),
     };
@@ -59,10 +61,17 @@ describe("hostGame", () => {
     expect(server.router.adapters.get(adapter.id)).toBe(adapter);
 
     channel.emit("worker_event", { source: "worker" }, { reliable: true });
-    expect(sendJSON).toHaveBeenCalledWith(
-      { t: "worker_event", data: { source: "worker" } },
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "worker_event",
+        data: expect.any(ArrayBuffer),
+      }),
       { reliable: true }
     );
+    const sentEnvelope = sendMessage.mock.calls.at(-1)?.[0] as MessageEnvelope;
+    expect(defaultPayloadSerde.decode(sentEnvelope.data)).toEqual({
+      source: "worker",
+    });
 
     const onDisconnect = jest.fn();
     channel.onDisconnect(onDisconnect);
@@ -93,12 +102,12 @@ describe("hostGame", () => {
 
     const remoteId = "worker-client-2";
     const adapter = createMockAdapter("worker-adapter-2", remoteId);
-    const sendJSON = jest.fn();
+    const sendMessage = jest.fn();
     const sendRaw = jest.fn();
     const session: ServerAdapterSession = {
       remoteId,
       adapter,
-      sendJSON,
+      sendMessage,
       sendRaw,
       dispose: jest.fn(),
     };
@@ -108,16 +117,23 @@ describe("hostGame", () => {
 
     jest.advanceTimersByTime(500);
 
-    expect(sendJSON).toHaveBeenCalledWith(
-      {
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
         t: "clients_ping_list",
-        data: {
-          ts: expect.any(Number),
-          clients: [{ clientId: remoteId, pingMs: null }],
-        },
-      },
+        data: expect.any(ArrayBuffer),
+      }),
       { reliable: true }
     );
+    const pingListCall = sendMessage.mock.calls
+      .map((args) => args[0] as MessageEnvelope)
+      .reverse()
+      .find((envelope) => envelope.t === "clients_ping_list");
+    expect(pingListCall).toBeDefined();
+    const pingListEnvelope = pingListCall as MessageEnvelope;
+    expect(defaultPayloadSerde.decode(pingListEnvelope.data)).toEqual({
+      ts: expect.any(Number),
+      clients: [{ clientId: remoteId, pingMs: null }],
+    });
 
     server.dispose();
   });

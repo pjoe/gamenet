@@ -8,6 +8,7 @@ import {
   Adapter,
   ClientAdapterSession,
   createWorkerAdapter,
+  MessageEnvelope,
 } from "@gamenet/routing/adapter";
 import { createServerWebRTCAdapterManager } from "@gamenet/routing/adapter_webrtc";
 import { Message } from "@gamenet/routing/message";
@@ -21,17 +22,8 @@ interface HostRuntime {
 
 const WORKER_SERVER_ID = "host-worker";
 
-function encodePayload(data: unknown): ArrayBuffer {
-  return new TextEncoder().encode(JSON.stringify(data)).buffer as ArrayBuffer;
-}
-
-function decodePayload<T = unknown>(data: ArrayBuffer): T | undefined {
-  try {
-    const text = new TextDecoder().decode(new Uint8Array(data));
-    return JSON.parse(text) as T;
-  } catch {
-    return undefined;
-  }
+function createEmptyBuffer(): ArrayBuffer {
+  return new ArrayBuffer(0);
 }
 
 function createWorkerServerWorker() {
@@ -43,13 +35,13 @@ function createWorkerServerWorker() {
 
 /**
  * Creates a simple adapter for a WebRTC client that:
- * - receiveMessage: converts routing Message to plain JSON and sends via session.sendJSON
+ * - receiveMessage: forwards routing Message data as binary envelope via session.sendMessage
  * - emitMessage: no-op (inbound messages are handled by session.onMessage in the caller)
  */
 function createClientBridgeAdapter(
   adapterId: string,
   clientId: string,
-  sendJSON: (msg: unknown, options?: { reliable: boolean }) => void,
+  sendMessage: (msg: MessageEnvelope, options?: { reliable: boolean }) => void,
   sendRaw: (msg: ArrayBuffer, options?: { reliable: boolean }) => void
 ) {
   return {
@@ -57,12 +49,11 @@ function createClientBridgeAdapter(
     clientIds: new Set<string>([clientId]),
     receiveMessage(message: Message) {
       this.onReceiveMessage?.(message);
-      const decoded = decodePayload(message.data);
       if (message.type === "raw" && message.data) {
         sendRaw(message.data, { reliable: message.reliable });
       } else {
-        sendJSON(
-          { t: message.type, data: decoded },
+        sendMessage(
+          { t: message.type, data: message.data },
           { reliable: message.reliable }
         );
       }
@@ -91,8 +82,7 @@ function createLocalClientAdapterSession(args: {
     clientIds: new Set([clientId]),
     receiveMessage(message: Message) {
       this.onReceiveMessage?.(message);
-      const decoded = decodePayload(message.data);
-      session.onMessage?.({ t: message.type, data: decoded });
+      session.onMessage?.({ t: message.type, data: message.data });
     },
     emitMessage(message: Message) {
       this.onEmitMessage?.(message);
@@ -113,13 +103,12 @@ function createLocalClientAdapterSession(args: {
 
   const session: ClientAdapterSession = {
     adapter: undefined,
-    sendJSON(msg: unknown, options?: { reliable: boolean }) {
-      const envelope = msg as { t: string; data?: unknown };
+    sendMessage(msg: MessageEnvelope, options?: { reliable: boolean }) {
       const message: Message = {
         from: clientId,
         to: targetId,
-        type: envelope.t,
-        data: encodePayload(envelope.data),
+        type: msg.t,
+        data: msg.data,
         reliable: options?.reliable ?? true,
       };
       hostRouter.sendMessage(message);
@@ -141,7 +130,7 @@ function createLocalClientAdapterSession(args: {
         from: clientId,
         to: targetId,
         type: "__client_disconnected",
-        data: encodePayload({ clientId }),
+        data: createEmptyBuffer(),
         reliable: true,
       };
       hostRouter.sendMessage(disconnectMsg);
@@ -155,7 +144,7 @@ function createLocalClientAdapterSession(args: {
     from: clientId,
     to: targetId,
     type: "__client_connected",
-    data: encodePayload({ clientId }),
+    data: createEmptyBuffer(),
     reliable: true,
   };
   hostRouter.sendMessage(connectMsg);
@@ -196,7 +185,7 @@ function Host() {
       from: serverId,
       to: WORKER_SERVER_ID,
       type: "__init",
-      data: encodePayload({ serverId }),
+      data: createEmptyBuffer(),
       reliable: true,
     };
     router.sendMessage(initMessage);
@@ -225,7 +214,7 @@ function Host() {
       const bridgeAdapter = createClientBridgeAdapter(
         `bridge:${remoteId}`,
         remoteId,
-        (msg, opts) => session.sendJSON(msg, opts),
+        (msg, opts) => session.sendMessage(msg, opts),
         (msg, opts) => session.sendRaw(msg, opts)
       );
       router.registerAdapter(bridgeAdapter);
@@ -236,7 +225,7 @@ function Host() {
           from: remoteId,
           to: WORKER_SERVER_ID,
           type: json.t,
-          data: encodePayload(json.data),
+          data: json.data,
           reliable: true,
         };
         router.sendMessage(routedMessage);
@@ -250,7 +239,7 @@ function Host() {
           from: remoteId,
           to: WORKER_SERVER_ID,
           type: "__client_disconnected",
-          data: encodePayload({ clientId: remoteId }),
+          data: createEmptyBuffer(),
           reliable: true,
         };
         router.sendMessage(disconnectMsg);
@@ -261,7 +250,7 @@ function Host() {
         from: remoteId,
         to: WORKER_SERVER_ID,
         type: "__client_connected",
-        data: encodePayload({ clientId: remoteId }),
+        data: createEmptyBuffer(),
         reliable: true,
       };
       router.sendMessage(connectMsg);

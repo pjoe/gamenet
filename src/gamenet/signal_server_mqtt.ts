@@ -21,7 +21,7 @@ export function createMqttSignalServer(
       });
 
       client.on("error", (err) => {
-        throw new Error(`MQTT connection error: ${err.message}`);
+        console.error(`MQTT connection error: ${err.message}`);
       });
 
       client.on("message", (_topic: string, payload: Buffer) => {
@@ -51,7 +51,7 @@ export function createMqttSignalServer(
 
     mqttClient.subscribe(currentTopic, (err) => {
       if (err) {
-        throw new Error(
+        console.error(
           `Failed to subscribe to topic ${currentTopic}: ${err.message}`
         );
       }

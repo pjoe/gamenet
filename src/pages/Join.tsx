@@ -97,7 +97,7 @@ function Join() {
       );
       setExtraLatency(newLatency);
       if (gameClient) {
-        gameClient.extraLatency = newLatency;
+        gameClient.setExtraLatency(newLatency);
       }
     },
     [gameClient]
