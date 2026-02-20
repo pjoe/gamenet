@@ -1,8 +1,4 @@
 import { createHostChannelId } from "@gamenet/channel";
-import type {
-  ClientsPingListEntry,
-  ClientsPingListPayload,
-} from "@gamenet/clients_ping_list";
 import { joinGame } from "@gamenet/game_client";
 import {
   Adapter,
@@ -13,12 +9,9 @@ import {
 import { createServerWebRTCAdapterManager } from "@gamenet/routing/adapter_webrtc";
 import { Message } from "@gamenet/routing/message";
 import { createRouter, Router } from "@gamenet/routing/router";
-import { useEffect, useState } from "react";
-
-interface HostRuntime {
-  serverId: string;
-  dispose: () => void;
-}
+import { useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { useGame } from "../contexts/GameContext";
 
 const WORKER_SERVER_ID = "host-worker";
 
@@ -159,19 +152,16 @@ function createLocalClientAdapterSession(args: {
 }
 
 function Host() {
-  const [isHosting, setIsHosting] = useState(false);
-  const [clientPingList, setClientPingList] = useState<ClientsPingListEntry[]>(
-    []
-  );
-  const [gameServer, setGameServer] = useState<HostRuntime>();
+  const [isStarting, setIsStarting] = useState(false);
+  const { session, startSession } = useGame();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    return () => {
-      gameServer?.dispose();
-    };
-  }, [gameServer]);
+  if (session) {
+    return <Navigate to="/game" replace />;
+  }
 
   const handleHostGame = async () => {
+    setIsStarting(true);
     const serverId = await createHostChannelId();
     const router = createRouter(serverId);
     const worker = createWorkerServerWorker();
@@ -201,26 +191,22 @@ function Host() {
         }),
     });
 
-    hostClient.on("clients_ping_list", (data: ClientsPingListPayload) => {
-      setClientPingList(data.clients);
-    });
-
     const manager = createServerWebRTCAdapterManager({ serverId });
 
-    manager.onConnection = (session) => {
-      const remoteId = session.remoteId;
+    manager.onConnection = (webrtcSession) => {
+      const remoteId = webrtcSession.remoteId;
 
       // Create a bridge adapter for this client
       const bridgeAdapter = createClientBridgeAdapter(
         `bridge:${remoteId}`,
         remoteId,
-        (msg, opts) => session.sendMessage(msg, opts),
-        (msg, opts) => session.sendRaw(msg, opts)
+        (msg, opts) => webrtcSession.sendMessage(msg, opts),
+        (msg, opts) => webrtcSession.sendRaw(msg, opts)
       );
       router.registerAdapter(bridgeAdapter);
 
       // Forward incoming WebRTC messages from this client to the worker
-      session.onMessage = (json) => {
+      webrtcSession.onMessage = (json) => {
         const routedMessage: Message = {
           from: remoteId,
           to: WORKER_SERVER_ID,
@@ -231,7 +217,7 @@ function Host() {
         router.sendMessage(routedMessage);
       };
 
-      session.onDisconnected = () => {
+      webrtcSession.onDisconnected = () => {
         router.adapters.delete(bridgeAdapter.id);
         router.routes.delete(remoteId);
         // Notify worker about disconnection
@@ -256,17 +242,17 @@ function Host() {
       router.sendMessage(connectMsg);
     };
 
-    const hostRuntime: HostRuntime = {
+    startSession({
+      gameClient: hostClient,
       serverId,
+      isHost: true,
       dispose() {
         hostClient.dispose();
         manager.dispose();
         worker.terminate();
       },
-    };
-
-    setGameServer(hostRuntime);
-    setIsHosting(true);
+    });
+    navigate("/game");
   };
 
   return (
@@ -276,74 +262,18 @@ function Host() {
           Host a Game
         </h1>
 
-        {!isHosting ? (
-          <div className="bg-[var(--color-bg-primary)] rounded-lg shadow p-8 transition-colors duration-200">
-            <p className="text-[var(--color-text-secondary)] mb-6 transition-colors duration-200">
-              Create a new game session and share the code with your friends.
-            </p>
-            <button
-              onClick={handleHostGame}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition"
-            >
-              Start Hosting
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="bg-[var(--color-bg-primary)] rounded-lg shadow p-4 transition-colors duration-200">
-              <div className="text-center">
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2 transition-colors duration-200">
-                  Your Game Code
-                </h2>
-                <div className="bg-[var(--color-bg-tertiary)] rounded-lg p-4 mb-3 transition-colors duration-200">
-                  <p className="text-3xl font-mono font-bold text-[var(--color-accent-blue)] transition-colors duration-200">
-                    {gameServer?.serverId}
-                  </p>
-                </div>
-                <p className="text-[var(--color-text-secondary)] text-sm mb-2 transition-colors duration-200">
-                  Share this code with players to let them join your game.
-                </p>
-                <div className="bg-[var(--color-success-bg)] border border-[var(--color-success-border)] rounded-lg p-2 transition-colors duration-200">
-                  <p className="text-[var(--color-success-text)] text-sm transition-colors duration-200">
-                    ✓ Game session is active
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[var(--color-bg-primary)] rounded-lg shadow p-4 transition-colors duration-200">
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3 transition-colors duration-200">
-                Connected Clients ({clientPingList.length})
-              </h2>
-              {clientPingList.length === 0 ? (
-                <p className="text-[var(--color-text-secondary)] text-sm text-center py-4 transition-colors duration-200">
-                  No clients connected yet. Share your game code to get started!
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {clientPingList.map((client) => (
-                    <div
-                      key={client.clientId}
-                      className="bg-[var(--color-bg-tertiary)] rounded-lg p-3 flex items-center justify-between transition-colors duration-200"
-                    >
-                      <div>
-                        <p className="font-mono text-[var(--color-text-primary)] transition-colors duration-200">
-                          {client.clientId}
-                        </p>
-                      </div>
-                      <div className="text-sm text-[var(--color-text-secondary)] transition-colors duration-200">
-                        Ping:{" "}
-                        {client.pingMs === null
-                          ? "N/A"
-                          : `${client.pingMs.toFixed(2)}ms`}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <div className="bg-[var(--color-bg-primary)] rounded-lg shadow p-8 transition-colors duration-200">
+          <p className="text-[var(--color-text-secondary)] mb-6 transition-colors duration-200">
+            Create a new game session and share the code with your friends.
+          </p>
+          <button
+            onClick={handleHostGame}
+            disabled={isStarting}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isStarting ? "Starting..." : "Start Hosting"}
+          </button>
+        </div>
       </div>
     </div>
   );

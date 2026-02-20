@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { version } from "../../package.json";
 
 function Home() {
@@ -15,18 +16,18 @@ function Home() {
             GameNet Library v{version}
           </p>
           <div className="mt-6 space-y-4">
-            <a
-              href="/host"
+            <Link
+              to="/host"
               className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition"
             >
               Host a Game
-            </a>
-            <a
-              href="/join"
+            </Link>
+            <Link
+              to="/join"
               className="block w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition"
             >
               Join a Game
-            </a>
+            </Link>
           </div>
         </div>
       </div>

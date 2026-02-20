@@ -1,10 +1,14 @@
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import ThemeToggle from "./components/ThemeToggle";
+import { useGame } from "./contexts/GameContext";
+import Game from "./pages/Game";
 import Home from "./pages/Home";
 import Host from "./pages/Host";
 import Join from "./pages/Join";
 
 function App() {
+  const { session } = useGame();
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-[var(--color-bg-secondary)] transition-colors duration-200">
@@ -51,6 +55,21 @@ function App() {
                 >
                   Join
                 </NavLink>
+                {session && (
+                  <NavLink
+                    to="/game"
+                    end
+                    className={({ isActive }) =>
+                      `inline-flex items-center px-1 pt-1 text-sm font-medium text-[var(--color-text-primary)] border-b-4 transition-colors duration-200 ${
+                        isActive
+                          ? "border-[var(--color-border-active)]"
+                          : "border-transparent hover:border-[var(--color-border-active)]"
+                      }`
+                    }
+                  >
+                    Game
+                  </NavLink>
+                )}
               </div>
               <div className="flex items-center">
                 <ThemeToggle />
@@ -64,6 +83,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/host" element={<Host />} />
             <Route path="/join" element={<Join />} />
+            <Route path="/game" element={<Game />} />
           </Routes>
         </main>
       </div>
