@@ -14,6 +14,8 @@ import { createRouter, Router } from "./routing/router";
 import { defaultPayloadSerde, PayloadSerde } from "./serde";
 
 type EmitOptions = SendOptions;
+const PING_INTERVAL_MS = 500;
+const PONG_TIMEOUT_MS = 10_000;
 
 type Events = Record<string, unknown>;
 
@@ -70,7 +72,7 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
     channels.forEach((channel) => {
       channel.emit("clients_ping_list", payload, { reliable: true });
     });
-  }, 500);
+  }, PING_INTERVAL_MS);
 
   const server: GameServer = {
     serverId,
@@ -96,6 +98,8 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
       (from: string, type: string, data: any) => void
     >();
     let onDisconnectHandler: (clientId: string) => void;
+    let lastPongAt = Date.now();
+    let isDisconnected = false;
 
     session.onMessage = (json: MessageEnvelope) => {
       const decoded = payloadSerde.decode(json.data);
@@ -147,6 +151,7 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
     }
 
     channel.on("pong", (_, data: { time: number }) => {
+      lastPongAt = Date.now();
       const now = Date.now();
       const latency = now - data.time;
       if (channel.latency < 0) {
@@ -156,10 +161,23 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
       }
     });
 
-    const pingInterval = setInterval(ping, 500);
+    const pingInterval = setInterval(ping, PING_INTERVAL_MS);
+    const pongTimeoutInterval = setInterval(() => {
+      const elapsed = Date.now() - lastPongAt;
+      if (elapsed <= PONG_TIMEOUT_MS) {
+        return;
+      }
+      session.dispose();
+      handleDisconnected();
+    }, PING_INTERVAL_MS);
 
-    session.onDisconnected = () => {
+    const handleDisconnected = () => {
+      if (isDisconnected) {
+        return;
+      }
+      isDisconnected = true;
       clearInterval(pingInterval);
+      clearInterval(pongTimeoutInterval);
       const adapter = server.adapters.get(remoteId);
       if (adapter) {
         server.router.adapters.delete(adapter.id);
@@ -168,6 +186,8 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
       channels.delete(remoteId);
       onDisconnectHandler?.(remoteId);
     };
+
+    session.onDisconnected = handleDisconnected;
 
     onConnectionHandler(channel);
   };

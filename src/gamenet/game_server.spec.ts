@@ -137,4 +137,45 @@ describe("hostGame", () => {
 
     server.dispose();
   });
+
+  it("times out clients that do not send pong within 10 seconds", async () => {
+    jest.useFakeTimers();
+
+    const sessions = new Map<string, ServerAdapterSession>();
+    const manager: ServerAdapterManager = {
+      sessions,
+      dispose: jest.fn(),
+    };
+
+    const server = await hostGame({
+      createAdapterManager: () => manager,
+    });
+    server.onConnection(() => {});
+
+    const remoteId = "stale-client";
+    const adapter = createMockAdapter("worker-adapter-stale", remoteId);
+    const sendMessage = jest.fn();
+    const sendRaw = jest.fn();
+    const dispose = jest.fn();
+    const session: ServerAdapterSession = {
+      remoteId,
+      adapter,
+      sendMessage,
+      sendRaw,
+      dispose,
+    };
+
+    sessions.set(remoteId, session);
+    manager.onConnection?.(session);
+
+    expect(server.adapters.has(remoteId)).toBe(true);
+
+    jest.advanceTimersByTime(10_500);
+
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(server.adapters.has(remoteId)).toBe(false);
+    expect(server.router.adapters.has(adapter.id)).toBe(false);
+
+    server.dispose();
+  });
 });
