@@ -46,6 +46,7 @@ describe("hostGame", () => {
     const sendRaw = jest.fn();
     const session: ServerAdapterSession = {
       remoteId,
+      nickname: "Worker Client 1",
       adapter,
       sendMessage,
       sendRaw,
@@ -106,6 +107,7 @@ describe("hostGame", () => {
     const sendRaw = jest.fn();
     const session: ServerAdapterSession = {
       remoteId,
+      nickname: "Worker Client 2",
       adapter,
       sendMessage,
       sendRaw,
@@ -132,7 +134,9 @@ describe("hostGame", () => {
     const pingListEnvelope = pingListCall as MessageEnvelope;
     expect(defaultPayloadSerde.decode(pingListEnvelope.data)).toEqual({
       ts: expect.any(Number),
-      clients: [{ clientId: remoteId, pingMs: null }],
+      clients: [
+        { clientId: remoteId, nickname: "Worker Client 2", pingMs: null },
+      ],
     });
 
     server.dispose();

@@ -19,6 +19,24 @@ function createEmptyBuffer(): ArrayBuffer {
   return new ArrayBuffer(0);
 }
 
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return data.buffer.slice(
+    data.byteOffset,
+    data.byteOffset + data.byteLength
+  ) as ArrayBuffer;
+}
+
+function encodeClientConnectPayload(payload: {
+  nickname?: string;
+}): ArrayBuffer {
+  const nickname = payload.nickname?.trim();
+  if (!nickname) {
+    return createEmptyBuffer();
+  }
+
+  return toArrayBuffer(new TextEncoder().encode(JSON.stringify({ nickname })));
+}
+
 function createWorkerServerWorker() {
   return new Worker(
     new URL("../gamenet/routing/host_server_worker.ts", import.meta.url),
@@ -66,8 +84,9 @@ function createLocalClientAdapterSession(args: {
   clientId: string;
   targetId: string;
   hostRouter: Router;
+  nickname?: string;
 }): ClientAdapterSession {
-  const { clientId, targetId, hostRouter } = args;
+  const { clientId, targetId, hostRouter, nickname } = args;
 
   // Adapter registered with the host router to receive messages for this client
   const hostSideAdapter: Adapter = {
@@ -137,7 +156,7 @@ function createLocalClientAdapterSession(args: {
     from: clientId,
     to: targetId,
     type: "__client_connected",
-    data: createEmptyBuffer(),
+    data: encodeClientConnectPayload({ nickname }),
     reliable: true,
   };
   hostRouter.sendMessage(connectMsg);
@@ -153,6 +172,7 @@ function createLocalClientAdapterSession(args: {
 
 function Host() {
   const [isStarting, setIsStarting] = useState(false);
+  const [nickname, setNickname] = useState("Host");
   const { session, startSession } = useGame();
   const navigate = useNavigate();
 
@@ -161,6 +181,11 @@ function Host() {
   }
 
   const handleHostGame = async () => {
+    const normalizedNickname = nickname.trim();
+    if (!normalizedNickname) {
+      return;
+    }
+
     setIsStarting(true);
     const serverId = await createHostChannelId();
     const router = createRouter(serverId);
@@ -183,11 +208,13 @@ function Host() {
     // Connect host as a regular game client through the router
     const hostClient = await joinGame({
       serverId,
-      createAdapterSession: ({ clientId }) =>
+      nickname: normalizedNickname,
+      createAdapterSession: ({ clientId, nickname: localNickname }) =>
         createLocalClientAdapterSession({
           clientId,
           targetId: WORKER_SERVER_ID,
           hostRouter: router,
+          nickname: localNickname,
         }),
     });
 
@@ -236,7 +263,9 @@ function Host() {
         from: remoteId,
         to: WORKER_SERVER_ID,
         type: "__client_connected",
-        data: createEmptyBuffer(),
+        data: encodeClientConnectPayload({
+          nickname: webrtcSession.nickname ?? remoteId,
+        }),
         reliable: true,
       };
       router.sendMessage(connectMsg);
@@ -266,9 +295,28 @@ function Host() {
           <p className="text-[var(--color-text-secondary)] mb-6 transition-colors duration-200">
             Create a new game session and share the code with your friends.
           </p>
+          <div className="mb-6">
+            <label
+              htmlFor="hostNickname"
+              className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2 transition-colors duration-200"
+            >
+              Nickname
+            </label>
+            <input
+              type="text"
+              id="hostNickname"
+              disabled={isStarting}
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="Enter your nickname"
+              maxLength={32}
+              className="w-full px-4 py-3 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] transition-colors duration-200"
+              required
+            />
+          </div>
           <button
             onClick={handleHostGame}
-            disabled={isStarting}
+            disabled={isStarting || !nickname.trim()}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isStarting ? "Starting..." : "Start Hosting"}

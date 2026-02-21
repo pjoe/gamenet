@@ -1,5 +1,6 @@
 export interface ClientsPingListEntry {
   clientId: string;
+  nickname: string;
   pingMs: number | null;
 }
 

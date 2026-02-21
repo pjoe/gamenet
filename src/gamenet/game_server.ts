@@ -21,6 +21,7 @@ type Events = Record<string, unknown>;
 
 export interface Channel {
   clientId: string;
+  nickname: string;
   latency: number;
   on<Key extends keyof Events>(
     type: Key,
@@ -65,6 +66,7 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
       ts: Date.now(),
       clients: Array.from(channels.values()).map((ch) => ({
         clientId: ch.clientId,
+        nickname: ch.nickname,
         pingMs: ch.latency < 0 ? null : Number(ch.latency.toFixed(2)),
       })),
     };
@@ -113,6 +115,7 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
 
     const channel: Channel = {
       clientId: remoteId,
+      nickname: session.nickname ?? remoteId,
       latency: -1,
       on(
         type: string,

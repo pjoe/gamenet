@@ -76,6 +76,9 @@ function Game() {
   }
 
   const { gameClient, serverId, isHost } = session;
+  const currentClientEntry = clientPingList.find(
+    (client) => client.clientId === gameClient.clientId
+  );
 
   return (
     <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
@@ -100,8 +103,8 @@ function Game() {
                   ? "Share this code with players to let them join your game."
                   : "Connected as "}
                 {!isHost && (
-                  <span className="font-mono font-semibold">
-                    {gameClient.clientId}
+                  <span className="font-semibold">
+                    {currentClientEntry?.nickname ?? gameClient.clientId}
                   </span>
                 )}
               </p>
@@ -130,7 +133,10 @@ function Game() {
                     className="bg-[var(--color-bg-tertiary)] rounded-lg p-3 flex items-center justify-between transition-colors duration-200"
                   >
                     <div>
-                      <p className="font-mono text-[var(--color-text-primary)] transition-colors duration-200">
+                      <p className="font-semibold text-[var(--color-text-primary)] transition-colors duration-200">
+                        {client.nickname}
+                      </p>
+                      <p className="font-mono text-xs text-[var(--color-text-secondary)] transition-colors duration-200">
                         {client.clientId}
                       </p>
                     </div>

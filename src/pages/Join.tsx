@@ -7,6 +7,7 @@ type JoinState = "idle" | "joining";
 
 function Join() {
   const [serverId, setServerId] = useState("");
+  const [nickname, setNickname] = useState("");
   const [extraLatency, setExtraLatency] = useState(0);
   const [joinState, setJoinState] = useState<JoinState>("idle");
   const { session, startSession } = useGame();
@@ -15,10 +16,12 @@ function Join() {
   const handleJoinGame = useCallback(
     (e: React.SubmitEvent) => {
       e.preventDefault();
-      if (serverId.trim()) {
+      const normalizedNickname = nickname.trim();
+      if (serverId.trim() && normalizedNickname) {
         (async () => {
           const client = await joinGame({
             serverId: serverId,
+            nickname: normalizedNickname,
             extraLatency: extraLatency,
           });
           client.onConnected(() => {
@@ -36,7 +39,7 @@ function Join() {
         setJoinState("joining");
       }
     },
-    [extraLatency, serverId, startSession, navigate]
+    [extraLatency, navigate, nickname, serverId, startSession]
   );
 
   const handleExtraLatencyChange = useCallback(
@@ -88,6 +91,25 @@ function Join() {
             </div>
             <div className="mb-6">
               <label
+                htmlFor="nickname"
+                className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2 transition-colors duration-200"
+              >
+                Nickname
+              </label>
+              <input
+                type="text"
+                id="nickname"
+                disabled={joinState !== "idle"}
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="Enter your nickname"
+                maxLength={32}
+                className="w-full px-4 py-3 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] transition-colors duration-200"
+                required
+              />
+            </div>
+            <div className="mb-6">
+              <label
                 htmlFor="extraLatency"
                 className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2 transition-colors duration-200"
               >
@@ -106,7 +128,9 @@ function Join() {
             </div>
             <button
               type="submit"
-              disabled={joinState !== "idle" || serverId.length < 1}
+              disabled={
+                joinState !== "idle" || serverId.length < 1 || !nickname.trim()
+              }
               className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:hover:bg-green-400 text-white font-medium py-3 px-4 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 disabled:focus:ring-0"
             >
               {joinState === "joining" ? "Joining..." : "Join Game"}

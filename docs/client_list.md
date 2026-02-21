@@ -21,6 +21,7 @@ Payload shape:
 ```ts
 interface ClientsPingListEntry {
   clientId: string;
+  nickname: string;
   pingMs: number | null;
 }
 
@@ -33,6 +34,7 @@ interface ClientsPingListPayload {
 Notes:
 
 - `pingMs` is `null` when ping is not yet known.
+- `nickname` is the client-provided display name, falling back to `clientId` if missing.
 - Unknown ping is shown as `N/A` in the UI.
 - This list includes connected remote clients only (not the host).
 

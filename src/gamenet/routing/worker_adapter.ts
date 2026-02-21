@@ -7,6 +7,25 @@ import type {
 } from "./adapter";
 import type { Message } from "./message";
 
+function decodeClientConnectPayload(data: ArrayBuffer): { nickname?: string } {
+  if (data.byteLength === 0) {
+    return {};
+  }
+  try {
+    const json = new TextDecoder().decode(data);
+    const parsed = JSON.parse(json) as { nickname?: unknown };
+    if (typeof parsed.nickname === "string") {
+      const nickname = parsed.nickname.trim();
+      if (nickname) {
+        return { nickname };
+      }
+    }
+  } catch {
+    // ignore malformed control payloads
+  }
+  return {};
+}
+
 export interface WorkerAdapter extends Adapter {
   worker: Worker;
 }
@@ -76,7 +95,10 @@ export function createWorkerServerAdapterManager(
     },
   };
 
-  function createSession(clientId: string): ServerAdapterSession {
+  function createSession(
+    clientId: string,
+    nickname?: string
+  ): ServerAdapterSession {
     const adapter: Adapter = {
       id: `${serverId}:${clientId}`,
       clientIds: new Set<string>([clientId]),
@@ -90,6 +112,7 @@ export function createWorkerServerAdapterManager(
 
     const session: ServerAdapterSession = {
       remoteId: clientId,
+      nickname,
       adapter,
       sendMessage(msg: MessageEnvelope, options?: SendOptions) {
         const message: Message = {
@@ -125,7 +148,8 @@ export function createWorkerServerAdapterManager(
       if (sessions.has(clientId)) {
         return;
       }
-      const session = createSession(clientId);
+      const payload = decodeClientConnectPayload(message.data);
+      const session = createSession(clientId, payload.nickname ?? clientId);
       sessions.set(clientId, session);
       manager.onConnection?.(session);
       return;

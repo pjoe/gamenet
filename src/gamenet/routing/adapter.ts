@@ -32,6 +32,7 @@ export interface ClientAdapterSession<
 
 export interface ServerAdapterSession {
   remoteId: string;
+  nickname?: string;
   adapter: Adapter;
   onDisconnected?: () => void;
   onMessage?: (envelope: MessageEnvelope) => void;

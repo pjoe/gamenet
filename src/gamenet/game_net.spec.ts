@@ -109,13 +109,30 @@ describe("gameNet", () => {
         })
       );
 
-      gameClient = await joinGame({ serverId: gameServer.serverId });
+      gameClient = await joinGame({
+        serverId: gameServer.serverId,
+        nickname: "Player One",
+      });
       activeClient = gameClient;
       expect(gameClient).toBeDefined();
 
       const serverChannel = await onConnectionPromise;
       expect(serverChannel.clientId).toBe(gameClient.clientId);
+      expect(serverChannel.nickname).toBe("Player One");
       await waitForConnectedAdapter(gameClient);
+
+      const clientsPingList = waitForClientEvent(
+        gameClient,
+        "clients_ping_list"
+      );
+      await expect(clientsPingList).resolves.toMatchObject({
+        clients: expect.arrayContaining([
+          expect.objectContaining({
+            clientId: gameClient.clientId,
+            nickname: "Player One",
+          }),
+        ]),
+      });
 
       const fromClientReliable = waitForServerEvent(
         serverChannel,

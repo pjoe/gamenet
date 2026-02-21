@@ -30,9 +30,21 @@ describe("joinGame", () => {
       dispose: jest.fn(),
     };
 
+    let createSessionArgs:
+      | { clientId: string; serverId: string; nickname?: string }
+      | undefined;
     const gameClient: GameClient = await joinGame({
       serverId: "worker-server-1",
-      createAdapterSession: () => session,
+      nickname: "Player One",
+      createAdapterSession: (args) => {
+        createSessionArgs = args;
+        return session;
+      },
+    });
+
+    expect(createSessionArgs).toMatchObject({
+      serverId: "worker-server-1",
+      nickname: "Player One",
     });
 
     expect(gameClient.adapter).toBeUndefined();

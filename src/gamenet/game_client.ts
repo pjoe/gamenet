@@ -31,16 +31,19 @@ export interface GameClient {
 
 export interface JoinGameArgs {
   serverId: string;
+  nickname?: string;
   extraLatency?: number;
   payloadSerde?: PayloadSerde;
   createAdapterSession?: (args: {
     clientId: string;
     serverId: string;
+    nickname?: string;
   }) => ClientAdapterSession;
 }
 
 export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
   const extraLatency = args.extraLatency ?? 0;
+  const nickname = args.nickname?.trim() || undefined;
   const payloadSerde = args.payloadSerde ?? defaultPayloadSerde;
   const clientId = createClientChannelId();
   const router = createRouter(clientId);
@@ -49,10 +52,12 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
     args.createAdapterSession?.({
       clientId,
       serverId: args.serverId,
+      nickname,
     }) ??
     createClientWebRTCAdapterSession({
       clientId,
       serverId: args.serverId,
+      nickname,
     });
   const emitter = mitt<Events>();
   const wildcardHandlers = new Set<(type: string, data: any) => void>();

@@ -44,6 +44,7 @@ export type ClientWebRTCAdapterSession = ClientAdapterSession<
 export interface CreateClientWebRTCAdapterSessionArgs {
   clientId: string;
   serverId: string;
+  nickname?: string;
   signalServer?: SignalServer;
 }
 
@@ -94,15 +95,16 @@ function decodeRoutingWireMessage(
       new Uint8Array(payload)
     ) as Partial<RoutingWireMessage>;
     let decodedData: ArrayBuffer | undefined;
-    if (decoded.data instanceof Uint8Array) {
-      decodedData = toArrayBuffer(decoded.data);
-    } else if (decoded.data instanceof ArrayBuffer) {
-      decodedData = decoded.data;
-    } else if (ArrayBuffer.isView(decoded.data)) {
+    const decodedWireData = decoded.data as unknown;
+    if (decodedWireData instanceof Uint8Array) {
+      decodedData = toArrayBuffer(decodedWireData);
+    } else if (decodedWireData instanceof ArrayBuffer) {
+      decodedData = decodedWireData;
+    } else if (ArrayBuffer.isView(decodedWireData)) {
       const view = new Uint8Array(
-        decoded.data.buffer,
-        decoded.data.byteOffset,
-        decoded.data.byteLength
+        decodedWireData.buffer,
+        decodedWireData.byteOffset,
+        decodedWireData.byteLength
       );
       decodedData = toArrayBuffer(view);
     }
@@ -326,7 +328,9 @@ export function createClientWebRTCAdapterSession(
     }
   });
 
-  sendSignal(args.serverId, "join");
+  sendSignal(args.serverId, "join", {
+    nickname: args.nickname?.trim() || undefined,
+  });
 
   return session;
 }
@@ -337,6 +341,7 @@ export function createServerWebRTCAdapterManager(
   const signalServer = args.signalServer ?? getSignalServer();
   const sessions = new Map<string, ServerWebRTCAdapterSession>();
   const peerConns = new Map<string, PeerConn>();
+  const pendingNicknames = new Map<string, string>();
   let disposed = false;
 
   const manager: ServerWebRTCAdapterManager = {
@@ -352,6 +357,7 @@ export function createServerWebRTCAdapterManager(
       }
       sessions.clear();
       peerConns.clear();
+      pendingNicknames.clear();
     },
   };
 
@@ -364,9 +370,18 @@ export function createServerWebRTCAdapterManager(
 
     const msg = JSON.parse(message) as SignalMsg;
     switch (msg.t) {
-      case "join":
+      case "join": {
+        const nickname =
+          typeof msg.data === "object" &&
+          msg.data !== null &&
+          "nickname" in msg.data &&
+          typeof (msg.data as { nickname?: unknown }).nickname === "string"
+            ? (msg.data as { nickname: string }).nickname.trim()
+            : "";
+        pendingNicknames.set(msg.from, nickname || msg.from);
         sendSignal(msg.from, "joined");
         break;
+      }
       case "offer": {
         const remoteId = msg.from;
         const peer = new PeerConn(
@@ -384,6 +399,7 @@ export function createServerWebRTCAdapterManager(
 
           const session: ServerWebRTCAdapterSession = {
             remoteId,
+            nickname: pendingNicknames.get(remoteId) ?? remoteId,
             adapter,
             sendMessage(message, options) {
               const routingMessage: Message = {
@@ -415,6 +431,7 @@ export function createServerWebRTCAdapterManager(
               }
               sessions.delete(remoteId);
               peerConns.delete(remoteId);
+              pendingNicknames.delete(remoteId);
               connectedPeer.close();
             },
           };
@@ -443,6 +460,7 @@ export function createServerWebRTCAdapterManager(
               }
               sessions.delete(remoteId);
               peerConns.delete(remoteId);
+              pendingNicknames.delete(remoteId);
               session.onDisconnected?.();
             }
           );
