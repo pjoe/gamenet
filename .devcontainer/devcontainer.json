@@ -3,13 +3,19 @@
 {
   "name": "Node.js & TypeScript",
   // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:24",
-  "features": {},
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:24-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": true,
+      "azureDnsAutoDetection": true,
+      "installDockerBuildx": true,
+      "version": "latest",
+      "dockerDashComposeVersion": "v2"
+    }
+  },
   "customizations": {
     "vscode": {
-      "extensions": [
-        "esbenp.prettier-vscode"
-      ]
+      "extensions": ["esbenp.prettier-vscode"]
     }
   }
 
