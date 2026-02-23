@@ -1,12 +1,14 @@
 import { joinGame } from "@gamenet/core";
 import { useGame } from "@gamenet/core/react";
+import {
+  ActionButton,
+  Card,
+  ExtraLatencyInput,
+  FormField,
+  PageLayout,
+} from "@gamenet/example-ui";
 import { useCallback, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import ActionButton from "../components/ActionButton";
-import Card from "../components/Card";
-import ExtraLatencyInput from "../components/ExtraLatencyInput";
-import FormField from "../components/FormField";
-import PageLayout from "../components/PageLayout";
 
 type JoinState = "idle" | "joining";
 

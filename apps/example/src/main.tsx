@@ -4,10 +4,10 @@ import {
   selectSignalServer,
 } from "@gamenet/core";
 import { GameProvider } from "@gamenet/core/react";
+import { ThemeProvider } from "@gamenet/example-ui";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
-import { ThemeProvider } from "./contexts/ThemeContext";
 import "./index.css";
 
 // Signal server initialization (moved from library to app responsibility)

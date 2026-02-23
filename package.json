@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @gamenet/example-app dev",
-    "build": "pnpm --filter @gamenet/core build && pnpm --filter @gamenet/example-app build",
-    "build:lib": "pnpm --filter @gamenet/core build",
+    "build": "pnpm --filter @gamenet/core build && pnpm --filter @gamenet/example-ui build && pnpm --filter @gamenet/example-app build",
+    "build:lib": "pnpm --filter @gamenet/core build && pnpm --filter @gamenet/example-ui build",
     "preview": "pnpm --filter @gamenet/example-app preview",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --forceExit",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",

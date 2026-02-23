@@ -3,13 +3,15 @@ import type {
   ClientsPingListPayload,
 } from "@gamenet/core";
 import { useGame } from "@gamenet/core/react";
+import {
+  ActionButton,
+  Card,
+  ClientList,
+  ExtraLatencyInput,
+  PageLayout,
+} from "@gamenet/example-ui";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import ActionButton from "../components/ActionButton";
-import Card from "../components/Card";
-import ClientList from "../components/ClientList";
-import ExtraLatencyInput from "../components/ExtraLatencyInput";
-import PageLayout from "../components/PageLayout";
 
 function Game() {
   const { session, endSession } = useGame();

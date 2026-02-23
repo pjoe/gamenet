@@ -1,0 +1,36 @@
+{
+  "name": "@gamenet/example-ui",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles": "./src/index.css"
+  },
+  "files": [
+    "dist",
+    "src/index.css"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@gamenet/core": "workspace:*",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-router-dom": "^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@gamenet/core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@gamenet/core": "workspace:*",
+    "react": "^19.2.4",
+    "react-router-dom": "^7.13.0",
+    "typescript": "^5.7.2",
+    "vite": "^7.3.1"
+  }
+}

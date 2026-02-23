@@ -13,12 +13,9 @@ import {
   joinGame,
 } from "@gamenet/core";
 import { useGame } from "@gamenet/core/react";
+import { ActionButton, Card, FormField, PageLayout } from "@gamenet/example-ui";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import ActionButton from "../components/ActionButton";
-import Card from "../components/Card";
-import FormField from "../components/FormField";
-import PageLayout from "../components/PageLayout";
 
 const WORKER_SERVER_ID = "host-worker";
 

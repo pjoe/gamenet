@@ -1,4 +1,8 @@
 {
   "files": [],
-  "references": [{ "path": "packages/gamenet" }, { "path": "apps/example" }]
+  "references": [
+    { "path": "packages/gamenet" },
+    { "path": "packages/example-ui" },
+    { "path": "apps/example" }
+  ]
 }

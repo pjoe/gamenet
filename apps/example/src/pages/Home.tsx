@@ -1,7 +1,5 @@
+import { ActionButton, Card, PageLayout } from "@gamenet/example-ui";
 import { version } from "../../package.json" with { type: "json" };
-import ActionButton from "../components/ActionButton";
-import Card from "../components/Card";
-import PageLayout from "../components/PageLayout";
 
 function Home() {
   return (
