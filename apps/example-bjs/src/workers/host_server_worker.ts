@@ -2,7 +2,7 @@ import {
   type HostServerWorkerScope,
   setupHostServerWorker,
 } from "@gamenet/core/worker-setup";
-import { setupBabylonServer } from "./gameserver";
+import { setupBabylonServer } from "../game/server";
 
 console.debug("Host server worker script loaded");
 
