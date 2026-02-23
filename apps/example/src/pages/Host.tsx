@@ -15,6 +15,10 @@ import {
 import { useGame } from "@gamenet/core/react";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import ActionButton from "../components/ActionButton";
+import Card from "../components/Card";
+import FormField from "../components/FormField";
+import PageLayout from "../components/PageLayout";
 
 const WORKER_SERVER_ID = "host-worker";
 
@@ -288,45 +292,31 @@ function Host() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-3 transition-colors duration-200">
-          Host a Game
-        </h1>
-
-        <div className="bg-[var(--color-bg-primary)] rounded-lg shadow p-8 transition-colors duration-200">
-          <p className="text-[var(--color-text-secondary)] mb-6 transition-colors duration-200">
-            Create a new game session and share the code with your friends.
-          </p>
-          <div className="mb-6">
-            <label
-              htmlFor="hostNickname"
-              className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2 transition-colors duration-200"
-            >
-              Nickname
-            </label>
-            <input
-              type="text"
-              id="hostNickname"
-              disabled={isStarting}
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="Enter your nickname"
-              maxLength={32}
-              className="w-full px-4 py-3 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] transition-colors duration-200"
-              required
-            />
-          </div>
-          <button
-            onClick={handleHostGame}
-            disabled={isStarting || !nickname.trim()}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isStarting ? "Starting..." : "Start Hosting"}
-          </button>
-        </div>
-      </div>
-    </div>
+    <PageLayout title="Host a Game" compact>
+      <Card>
+        <p className="text-[var(--color-text-secondary)] mb-6 transition-colors duration-200">
+          Create a new game session and share the code with your friends.
+        </p>
+        <FormField
+          id="hostNickname"
+          label="Nickname"
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
+          placeholder="Enter your nickname"
+          maxLength={32}
+          disabled={isStarting}
+          required
+          accentColor="blue"
+        />
+        <ActionButton
+          color="blue"
+          onClick={handleHostGame}
+          disabled={isStarting || !nickname.trim()}
+        >
+          {isStarting ? "Starting..." : "Start Hosting"}
+        </ActionButton>
+      </Card>
+    </PageLayout>
   );
 }
 
