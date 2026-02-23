@@ -28,7 +28,6 @@ export function setupBabylonServer() {
   const render = () => {
     setTimeout(render, engine.getTimeStep());
     engine.beginFrame();
-    // engine.runRenderLoop(() => {
     scene.render();
     if (engine._gl) {
       engine.endFrame();
