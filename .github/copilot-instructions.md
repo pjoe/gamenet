@@ -4,14 +4,14 @@
 
 Dependencies are automatically pre-installed via `.github/workflows/copilot-setup-steps.yml` when Copilot starts working. This workflow:
 
-- Sets up Node.js 24 with npm caching
-- Installs all project dependencies with `npm ci`
+- Sets up Node.js 24 with pnpm caching
+- Installs all project dependencies with `pnpm install --frozen-lockfile`
 
 ## Code Style
 
 - Use TypeScript with strict typing; avoid weakening types unless existing networking files already require it.
 - Follow ESLint flat config in `eslint.config.js` and keep underscore-prefixed unused args/vars when intentionally unused.
-- Keep formatting consistent with Prettier (`npm run format` / `npm run format:check`).
+- Keep formatting consistent with Prettier (`pnpm run format` / `pnpm run format:check`).
 - Preserve existing event-driven style (`mitt`) for game networking flows.
 
 ## Commit messages
@@ -35,15 +35,15 @@ Use conventional commits style for commit messages, e.g.:
 
 ## Build and Test
 
-- Install: `npm install`
-- Dev app: `npm run dev`
-- Build: `npm run build`
-- Preview build: `npm run preview`
-- Lint: `npm run lint`
-- Lint autofix: `npm run lint:fix`
-- Format: `npm run format`
-- Format check: `npm run format:check`
-- Local WebSocket signaling server: `npm run local-server`
+- Install: `pnpm install`
+- Dev app: `pnpm run dev`
+- Build: `pnpm run build`
+- Preview build: `pnpm run preview`
+- Lint: `pnpm run lint`
+- Lint autofix: `pnpm run lint:fix`
+- Format: `pnpm run format`
+- Format check: `pnpm run format:check`
+- Local WebSocket signaling server: `pnpm run local-server`
 - Note: there is currently no standard test script in `package.json`; do not assume a default test runner.
 
 ## Conventions

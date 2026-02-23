@@ -11,4 +11,4 @@ applyTo: "src/main.tsx, src/App.tsx, src/index.css, src/pages/**, src/components
 - Use existing Tailwind utility patterns and theme tokens from `src/index.css`; avoid introducing new design systems.
 - Keep changes minimal and local to the requested page/component unless explicitly asked to refactor across views.
 - Prefer typed React code and avoid weakening TypeScript types for convenience.
-- Follow existing lint/format behavior (`npm run lint`, `npm run format`).
+- Follow existing lint/format behavior (`pnpm run lint`, `pnpm run format`).
