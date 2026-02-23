@@ -1,5 +1,5 @@
 {
-  "name": "@gamenet/example-bjs-app",
+  "name": "@gamenet/example-app-bjs",
   "private": true,
   "version": "0.0.1",
   "type": "module",
