@@ -8,7 +8,7 @@ import "@babylonjs/core/Physics/v2/physicsEngineComponent";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { Scene } from "@babylonjs/core/scene";
 import HavokPhysics from "@babylonjs/havok";
-import HavokInit from "../../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
+import HavokInit from "../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 
 const DEFAULT_NULL_ENGINE_OPTIONS: NullEngineOptions = {
   renderWidth: 1,
