@@ -58,5 +58,6 @@ Join page behavior:
 
 ## Files
 
-- `src/pages/Host.tsx` (broadcast producer)
-- `src/pages/Join.tsx` (broadcast consumer + renderer)
+- `packages/gamenet/src/game_server.ts` (broadcast producer)
+- `packages/gamenet/src/clients_ping_list.ts` (payload types)
+- `apps/example/src/pages/Game.tsx` (broadcast consumer + renderer)

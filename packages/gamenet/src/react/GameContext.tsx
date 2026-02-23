@@ -1,5 +1,5 @@
-import type { GameClient } from "@gamenet/game_client";
 import { createContext, useContext, useRef, useState } from "react";
+import type { GameClient } from "../game_client";
 
 export interface GameSession {
   gameClient: GameClient;

@@ -1,6 +1,6 @@
 # GameNet Architecture
 
-This document describes the architecture implemented in `src/gamenet`.
+This document describes the architecture of the `@gamenet/core` library (`packages/gamenet`) and its example app (`apps/example`).
 
 ## High-level overview
 
@@ -13,15 +13,25 @@ GameNet provides browser-based peer networking for multiplayer games:
   - `unreliable` (unordered, `maxRetransmits: 0`)
 - **Host/client APIs** exposed by `hostGame()` and `joinGame()`.
 
-At startup, `src/gamenet/index.ts` selects a default signal server implementation.
+Signal server selection is the consuming app's responsibility — the library exports `selectSignalServer()` and signal server factories.
 
 ## Module map
 
 ### Public API
 
-- `index.ts`
+- `index.ts` (`@gamenet/core`)
   - Re-exports `game_server` and `game_client` APIs.
-  - Picks default signaling backend using `selectSignalServer(...)`.
+  - Exports signal server factories (`createMqttSignalServer`, `createLocalSignalServer`) and `selectSignalServer()`.
+  - Exports routing types and functions (`Adapter`, `Router`, `createRouter`, `createWorkerAdapter`, `createServerWebRTCAdapterManager`, etc.).
+  - Exports channel utilities (`createHostChannelId`, `createClientChannelId`).
+  - Exports telemetry types (`ClientsPingListPayload`, `ClientsPingListEntry`).
+  - Exports serialization (`PayloadSerde`, `createJsonPayloadSerde`, `createMsgpackPayloadSerde`).
+
+### React bindings
+
+- `react/GameContext.tsx` (`@gamenet/core/react`)
+  - Provides `GameProvider` component and `useGame` hook for React apps.
+  - Manages `GameSession` lifecycle (start/end session, message buffering).
 
 ### Core session APIs
 
@@ -67,25 +77,25 @@ At startup, `src/gamenet/index.ts` selects a default signal server implementatio
 
 ### Routing submodule
 
-`src/gamenet/routing/*` defines a generic in-process routing model with pluggable transport adapters:
+`packages/gamenet/src/routing/*` defines a generic in-process routing model with pluggable transport adapters:
 
 - `message.ts`: binary message shape (`ArrayBuffer`, `reliable` flag).
 - `client.ts`: generic message endpoint (`Client`).
 - `adapter.ts`: adapter abstraction + transport-agnostic session contracts (`ClientAdapterSession`, `ServerAdapterSession`, `ServerAdapterManager`).
 - `worker_adapter.ts`: main-thread `createWorkerAdapter` + worker-side `createWorkerServerAdapterManager`.
-- `adapter_webrtc.ts`: WebRTC adapter + client/server session/manager implementations (internal, not publicly exported).
+- `adapter_webrtc.ts`: WebRTC adapter + client/server session/manager implementations.
 - `envelope_payload.ts`: `decodeRoutingEnvelopePayload` for transparent routing payload unwrapping on client side.
 - `router.ts`: route table + adapter/client registration and forwarding.
-- `host_server_worker.ts`: worker entry point that runs `hostGame()` inside a Web Worker.
+- `host_server_worker_setup.ts`: setup function exported as `@gamenet/core/worker-setup` for apps to create worker entry points.
 
 **Integration status**:
 
 - Routing infrastructure is wired into `hostGame` and `joinGame` runtime
 - Each `GameServer` creates a `Router` and registers adapters per connected peer
 - Each `GameClient` creates a `Router` and registers an adapter for server connection
-- `Host.tsx` implements the full worker-hosted topology: game server in worker, local host-client, and external WebRTC clients bridged through the main-thread router
+- `apps/example/src/pages/Host.tsx` implements the full worker-hosted topology: game server in worker, local host-client, and external WebRTC clients bridged through the main-thread router
 - Routing messages coexist with existing non-routing messages on data channels
-- **Not exported**: Routing API is internal and not exposed from `src/gamenet/index.ts`
+- Routing types and functions are exported from `@gamenet/core`
 
 See `docs/routing.md` for detailed flow diagrams and the worker-hosted architecture.
 
@@ -140,11 +150,12 @@ sequenceDiagram
 - Sends periodic pings every 500 ms and maintains smoothed latency estimate.
 - Cleans up adapter routes on peer disconnect.
 
-### Worker-hosted server (`Host.tsx` + `host_server_worker.ts`)
+### Worker-hosted server (`Host.tsx` + worker entry)
 
 The primary hosting model runs `hostGame()` inside a Web Worker:
 
-- Main thread creates a `Router`, spawns a worker, and registers a `WorkerAdapter` to bridge `postMessage` to the worker.
+- Main thread (`apps/example/src/pages/Host.tsx`) creates a `Router`, spawns a worker, and registers a `WorkerAdapter` to bridge `postMessage` to the worker.
+- The app provides its own worker entry point (`apps/example/src/workers/host_server_worker.ts`) that imports `setupHostServerWorker` from `@gamenet/core/worker-setup`.
 - Worker runs `hostGame()` with `createWorkerServerAdapterManager`, which receives control messages (`__client_connected`, `__client_disconnected`) and game messages via `postMessage`.
 - The host browser tab joins its own game via `joinGame()` with `createLocalClientAdapterSession` — a purely in-process adapter that routes through the main-thread router without WebRTC.
 - External clients connect via WebRTC to a `ServerWebRTCAdapterManager` on the main thread; per-client "bridge adapters" forward messages between the WebRTC session and the router/worker.
@@ -180,9 +191,8 @@ Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameC
 
 1. **Signal transport**: implement `SignalServer` and call `selectSignalServer(...)`.
 2. **Message encoding**: replace JSON envelopes with binary codecs (see `msgpack.ts` prototype).
-3. **Routing API exposure**: export routing module from `src/gamenet/index.ts` when ready for public use.
-4. **ICE config**: extend `iceServers` in `peer_conn.ts` for NAT traversal.
-5. **Custom adapter sessions**: inject `createAdapterSession` into `joinGame()` or `createAdapterManager` into `hostGame()` for non-WebRTC transports.
+3. **ICE config**: extend `iceServers` in `peer_conn.ts` for NAT traversal.
+4. **Custom adapter sessions**: inject `createAdapterSession` into `joinGame()` or `createAdapterManager` into `hostGame()` for non-WebRTC transports.
 
 ## Notable implementation characteristics
 
@@ -190,28 +200,46 @@ Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameC
 - Two-channel design allows reliability tradeoffs per message.
 - `extraLatency` is a useful deterministic network simulation hook on client side.
 - Host ping interval is created per connection and cleared on disconnect.
-- Routing infrastructure is wired internally but not exposed in public API.
+- Routing types and functions are exported from `@gamenet/core` for app-level use.
 - Routing and non-routing messages coexist on same data channels without interference.
 - `hostGame()` and `joinGame()` accept optional factory args for adapter managers/sessions, enabling non-WebRTC transports (e.g., worker-backed local sessions).
 - The worker-hosted model keeps game logic off the main thread while the main thread handles WebRTC negotiation and message routing.
 
 ## File index
 
-- `src/gamenet/index.ts`
-- `src/gamenet/channel.ts`
-- `src/gamenet/game_client.ts`
-- `src/gamenet/game_server.ts`
-- `src/gamenet/peer_conn.ts`
-- `src/gamenet/signal_server.ts`
-- `src/gamenet/signal_server_mqtt.ts`
-- `src/gamenet/signal_server_local.ts`
-- `src/gamenet/signal_server_local_server.ts`
-- `src/gamenet/routing/message.ts`
-- `src/gamenet/routing/client.ts`
-- `src/gamenet/routing/adapter.ts`
-- `src/gamenet/routing/worker_adapter.ts`
-- `src/gamenet/routing/adapter_webrtc.ts` (internal, not exported)
-- `src/gamenet/routing/envelope_payload.ts`
-- `src/gamenet/routing/router.ts`
-- `src/gamenet/routing/host_server_worker.ts`
-- `src/gamenet/msgpack.ts`
+### Library (`packages/gamenet/src/`)
+
+- `index.ts` — public API entry (`@gamenet/core`)
+- `channel.ts`
+- `game_client.ts`
+- `game_server.ts`
+- `peer_conn.ts`
+- `serde.ts`
+- `clients_ping_list.ts`
+- `signal_server.ts`
+- `signal_server_mqtt.ts`
+- `signal_server_local.ts`
+- `signal_server_local_server.ts`
+- `react/GameContext.tsx` — React bindings (`@gamenet/core/react`)
+- `routing/message.ts`
+- `routing/client.ts`
+- `routing/adapter.ts`
+- `routing/worker_adapter.ts`
+- `routing/adapter_webrtc.ts`
+- `routing/envelope_payload.ts`
+- `routing/router.ts`
+- `routing/host_server_worker_setup.ts` — worker setup (`@gamenet/core/worker-setup`)
+- `routing/host_server_worker.ts`
+- `msgpack.ts`
+
+### Example app (`apps/example/src/`)
+
+- `main.tsx` — app entry, signal server initialization
+- `App.tsx` — router shell
+- `pages/Home.tsx`
+- `pages/Host.tsx` — worker-hosted server orchestrator
+- `pages/Join.tsx`
+- `pages/Game.tsx`
+- `workers/host_server_worker.ts` — worker entry point (uses `@gamenet/core/worker-setup`)
+- `contexts/ThemeContext.tsx`
+- `components/ThemeToggle.tsx`

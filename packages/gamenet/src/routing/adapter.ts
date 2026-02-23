@@ -56,4 +56,4 @@ export {
   type WorkerPostMessage,
   type WorkerServerAdapterManagerArgs,
   type WorkerServerAdapterManagerResult,
-} from "./worker_adapter.ts";
+} from "./worker_adapter";

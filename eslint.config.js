@@ -5,7 +5,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", ".vite", "build"] },
+  { ignores: ["**/dist", "**/node_modules", "**/.vite", "**/build"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -24,7 +24,10 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": [
         "warn",
-        { allowConstantExport: true, allowExportNames: ["useTheme"] },
+        {
+          allowConstantExport: true,
+          allowExportNames: ["useTheme", "useGame"],
+        },
       ],
       "@typescript-eslint/no-unused-vars": [
         "warn",

@@ -1,6 +1,6 @@
+import { useGame } from "@gamenet/core/react";
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import ThemeToggle from "./components/ThemeToggle";
-import { useGame } from "./contexts/GameContext";
 import Game from "./pages/Game";
 import Home from "./pages/Home";
 import Host from "./pages/Host";

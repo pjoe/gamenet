@@ -1,7 +1,7 @@
-import { joinGame } from "@gamenet";
+import { joinGame } from "@gamenet/core";
+import { useGame } from "@gamenet/core/react";
 import { useCallback, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { useGame } from "../contexts/GameContext";
 
 type JoinState = "idle" | "joining";
 

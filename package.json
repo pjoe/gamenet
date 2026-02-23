@@ -1,41 +1,28 @@
 {
-  "name": "gamenet",
+  "name": "gamenet-monorepo",
   "private": true,
   "version": "0.0.1",
   "packageManager": "pnpm@10.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
+    "dev": "pnpm --filter @gamenet/example-app dev",
+    "build": "pnpm --filter @gamenet/core build && pnpm --filter @gamenet/example-app build",
+    "build:lib": "pnpm --filter @gamenet/core build",
+    "preview": "pnpm --filter @gamenet/example-app preview",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --forceExit",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --forceExit",
-    "local-server": "tsx src/gamenet/signal_server_local_server.ts",
+    "local-server": "tsx packages/gamenet/src/signal_server_local_server.ts",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
-  },
-  "dependencies": {
-    "@msgpack/msgpack": "^3.1.3",
-    "mitt": "^3.0.1",
-    "mqtt": "^5.15.0",
-    "nanoid": "^5.1.6",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.0",
-    "ws": "^8.19.0"
+    "format": "prettier --write \"{packages,apps}/**/src/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"{packages,apps}/**/src/**/*.{ts,tsx,css}\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@tailwindcss/vite": "^4.1.18",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.0.1",
-    "@types/ws": "^8.18.1",
-    "@vitejs/plugin-react": "^5.1.4",
     "eslint": "^10.0.1",
     "eslint-plugin-react-hooks": "7.1.0-canary-ab18f33d-20260220",
     "eslint-plugin-react-refresh": "^0.5.0",
@@ -43,12 +30,10 @@
     "jest": "^30.2.0",
     "node-datachannel": "^0.32.1",
     "prettier": "^3.8.1",
-    "tailwindcss": "^4.0.0",
     "ts-jest": "^29.2.5",
     "tsx": "^4.21.0",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.56.0",
-    "vite": "^7.3.1"
+    "typescript-eslint": "^8.56.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

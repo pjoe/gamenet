@@ -1,17 +1,20 @@
-import { createHostChannelId } from "@gamenet/channel";
-import { joinGame } from "@gamenet/game_client";
-import {
+import type {
   Adapter,
   ClientAdapterSession,
-  createWorkerAdapter,
+  Message,
   MessageEnvelope,
-} from "@gamenet/routing/adapter";
-import { createServerWebRTCAdapterManager } from "@gamenet/routing/adapter_webrtc";
-import { Message } from "@gamenet/routing/message";
-import { createRouter, Router } from "@gamenet/routing/router";
+  Router,
+} from "@gamenet/core";
+import {
+  createHostChannelId,
+  createRouter,
+  createServerWebRTCAdapterManager,
+  createWorkerAdapter,
+  joinGame,
+} from "@gamenet/core";
+import { useGame } from "@gamenet/core/react";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { useGame } from "../contexts/GameContext";
 
 const WORKER_SERVER_ID = "host-worker";
 
@@ -39,7 +42,7 @@ function encodeClientConnectPayload(payload: {
 
 function createWorkerServerWorker() {
   return new Worker(
-    new URL("../gamenet/routing/host_server_worker.ts", import.meta.url),
+    new URL("../workers/host_server_worker.ts", import.meta.url),
     { type: "module" }
   );
 }
@@ -72,7 +75,7 @@ function createClientBridgeAdapter(
     emitMessage(message: Message) {
       this.onEmitMessage?.(message);
     },
-  } satisfies import("@gamenet/routing/adapter").Adapter;
+  } satisfies Adapter;
 }
 
 /**

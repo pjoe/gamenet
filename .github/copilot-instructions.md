@@ -27,24 +27,32 @@ Use conventional commits style for commit messages, e.g.:
 
 ## Architecture
 
-- UI and routing live in `src/main.tsx`, `src/App.tsx`, and `src/pages/*`.
-- Core networking library is `src/gamenet/*` with public API from `src/gamenet/index.ts`.
-- Keep signaling concerns behind `SignalServer` (`src/gamenet/signal_server.ts`) and concrete adapters (`signal_server_mqtt.ts`, `signal_server_local.ts`).
-- Keep WebRTC peer-connection logic centralized in `src/gamenet/peer_conn.ts`.
+This is a pnpm monorepo with two packages:
+
+- `packages/gamenet` — the `@gamenet/core` library (networking, routing, signaling, React bindings)
+- `apps/example` — the example app consuming the library
+
+- UI and routing live in `apps/example/src/main.tsx`, `apps/example/src/App.tsx`, and `apps/example/src/pages/*`.
+- Core networking library is `packages/gamenet/src/*` with public API from `packages/gamenet/src/index.ts`.
+- React bindings (GameContext/useGame) are in `packages/gamenet/src/react/` and exported as `@gamenet/core/react`.
+- Keep signaling concerns behind `SignalServer` (`packages/gamenet/src/signal_server.ts`) and concrete adapters.
+- Keep WebRTC peer-connection logic centralized in `packages/gamenet/src/peer_conn.ts`.
+- Signal server initialization is the app's responsibility (done in `apps/example/src/main.tsx`).
 - See `docs/gamenet-architecture.md` for module boundaries and host/join sequence flow.
 
 ## Build and Test
 
 - Install: `pnpm install`
 - Dev app: `pnpm run dev`
-- Build: `pnpm run build`
+- Build all: `pnpm run build`
+- Build library only: `pnpm run build:lib`
 - Preview build: `pnpm run preview`
+- Test: `pnpm run test`
 - Lint: `pnpm run lint`
 - Lint autofix: `pnpm run lint:fix`
 - Format: `pnpm run format`
 - Format check: `pnpm run format:check`
 - Local WebSocket signaling server: `pnpm run local-server`
-- Note: there is currently no standard test script in `package.json`; do not assume a default test runner.
 
 ## Conventions
 

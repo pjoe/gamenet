@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { version } from "../../package.json";
+import { version } from "../../package.json" with { type: "json" };
 
 function Home() {
   return (

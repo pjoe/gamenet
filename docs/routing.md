@@ -1,6 +1,6 @@
 # Routing Architecture
 
-This document describes the routing subsystem in `src/gamenet/routing` and how messages flow between peers across local, worker, and remote (WebRTC) boundaries.
+This document describes the routing subsystem in `packages/gamenet/src/routing` and how messages flow between peers across local, worker, and remote (WebRTC) boundaries.
 
 ## Status at a glance
 
@@ -11,7 +11,7 @@ This document describes the routing subsystem in `src/gamenet/routing` and how m
   - WebRTC adapter for remote peer communication (internal, not publicly exported)
   - Worker-hosted game server with local host-client and external WebRTC clients (`Host.tsx`)
   - `envelope_payload.ts` for decoding routing payloads on the client side
-- **Integration status**: WebRTC adapter is wired into `game_server.ts` and `game_client.ts` runtime; worker hosting is wired in `Host.tsx` and `host_server_worker.ts`; routing API is not exported from `src/gamenet/index.ts`
+- **Integration status**: WebRTC adapter is wired into `game_server.ts` and `game_client.ts` runtime; worker hosting is wired in `apps/example/src/pages/Host.tsx` and `apps/example/src/workers/host_server_worker.ts`; routing types and functions are exported from `@gamenet/core`
 
 ## Core module map
 
@@ -42,10 +42,12 @@ This document describes the routing subsystem in `src/gamenet/routing` and how m
   - **Internal use only**: Not exported from `src/gamenet/index.ts`.
 - `envelope_payload.ts`
   - `decodeRoutingEnvelopePayload(data)` — detects and decodes base64-encoded routing payloads in message envelopes; used by `game_client.ts` to transparently unwrap routed messages.
-- `host_server_worker.ts`
-  - Worker entry point that runs `hostGame()` inside a Web Worker using `createWorkerServerAdapterManager`.
+- `host_server_worker_setup.ts` (exported as `@gamenet/core/worker-setup`)
+  - Provides `setupHostServerWorker()` function for apps to create worker entry points.
   - Handles `__init` control message to bootstrap, then dispatches all subsequent messages to the adapter manager.
   - Runs game logic (connection handling, `clients_ping_list` broadcast) inside the worker thread.
+- `host_server_worker.ts`
+  - Library's own worker entry point (reference implementation) using `setupHostServerWorker()`.
 - `router.ts`
   - Defines `Router` and `createRouter(id)`.
   - Maintains:
@@ -100,7 +102,7 @@ The WebRTC adapter (`adapter_webrtc.ts`) bridges the routing subsystem with WebR
 
 ## Worker-hosted game server (primary hosting model)
 
-The primary hosting topology runs the game server inside a Web Worker, with the host browser tab acting as both the routing hub and a local game client. External players connect via WebRTC. This is implemented in `Host.tsx` and `host_server_worker.ts`.
+The primary hosting topology runs the game server inside a Web Worker, with the host browser tab acting as both the routing hub and a local game client. External players connect via WebRTC. This is implemented in `apps/example/src/pages/Host.tsx` (orchestrator) and `apps/example/src/workers/host_server_worker.ts` (worker entry using `@gamenet/core/worker-setup`).
 
 ### Architecture overview
 
@@ -129,24 +131,24 @@ graph LR
 
 ### Components
 
-| Component              | Location             | Role                                                                                                          |
-| ---------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Router**             | Main thread          | Central message hub; routes between worker adapter, local host-client adapter, and per-client bridge adapters |
-| **Worker Adapter**     | Main thread → Worker | Bridges `postMessage` between main-thread router and worker thread                                            |
-| **Worker Game Server** | Worker thread        | Runs `hostGame()` with `createWorkerServerAdapterManager`; handles game logic                                 |
-| **Host Client**        | Main thread          | Regular `joinGame()` client connected locally via `createLocalClientAdapterSession`                           |
-| **Bridge Adapter**     | Main thread          | Per-external-client adapter; converts between routing `Message` and WebRTC session `sendJSON`/`sendRaw`       |
-| **WebRTC Manager**     | Main thread          | `createServerWebRTCAdapterManager` accepting external peer connections via signaling                          |
+| Component              | Location             | Role                                                                                                            |
+| ---------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Router**             | Main thread          | Central message hub; routes between worker adapter, local host-client adapter, and per-client bridge adapters   |
+| **Worker Adapter**     | Main thread → Worker | Bridges `postMessage` between main-thread router and worker thread (`createWorkerAdapter` from `@gamenet/core`) |
+| **Worker Game Server** | Worker thread        | Runs `hostGame()` via `setupHostServerWorker` from `@gamenet/core/worker-setup`                                 |
+| **Host Client**        | Main thread          | Regular `joinGame()` client connected locally via `createLocalClientAdapterSession`                             |
+| **Bridge Adapter**     | Main thread          | Per-external-client adapter; converts between routing `Message` and WebRTC session `sendJSON`/`sendRaw`         |
+| **WebRTC Manager**     | Main thread          | `createServerWebRTCAdapterManager` from `@gamenet/core` accepting external peer connections via signaling       |
 
 ### Startup sequence
 
 1. `Host.tsx` creates a `serverId` and a main-thread `Router`.
-2. A Web Worker is spawned running `host_server_worker.ts`.
-3. A `WorkerAdapter` is created and registered with the router (route target: `WORKER_SERVER_ID`).
+2. A Web Worker is spawned running the app's worker entry point (`apps/example/src/workers/host_server_worker.ts`).
+3. A `WorkerAdapter` (from `@gamenet/core`) is created and registered with the router (route target: `WORKER_SERVER_ID`).
 4. An `__init` control message is sent to the worker with the `serverId`.
-5. Inside the worker, `createWorkerServerAdapterManager` is initialized, and `hostGame()` starts with it.
-6. The host tab calls `joinGame()` with `createLocalClientAdapterSession`, connecting the host as a regular game client through the router (no WebRTC needed).
-7. A `ServerWebRTCAdapterManager` is created on the main thread to accept incoming WebRTC connections from external clients.
+5. Inside the worker, `setupHostServerWorker` (from `@gamenet/core/worker-setup`) initializes `createWorkerServerAdapterManager` and starts `hostGame()`.
+6. The host tab calls `joinGame()` (from `@gamenet/core`) with `createLocalClientAdapterSession`, connecting the host as a regular game client through the router (no WebRTC needed).
+7. A `ServerWebRTCAdapterManager` (from `@gamenet/core`) is created on the main thread to accept incoming WebRTC connections from external clients.
 
 ### Control messages
 
@@ -229,7 +231,7 @@ sequenceDiagram
     WR->>EC: data channel message
 ```
 
-The bridge adapter (`createClientBridgeAdapter` in `Host.tsx`) works as follows:
+The bridge adapter (`createClientBridgeAdapter` in `apps/example/src/pages/Host.tsx`) works as follows:
 
 - Created per external client when `ServerWebRTCAdapterManager.onConnection` fires.
 - `receiveMessage` decodes the routing `Message.data` back to JSON and forwards via the WebRTC session's `sendJSON` / `sendRaw`.
@@ -367,14 +369,12 @@ sequenceDiagram
 1. Add new `Adapter` implementations for other transport mechanisms.
 2. Use `defaultRoute` as an upstream fallback for unresolved destinations.
 3. Add policy checks (authorization, filtering, metrics) at adapter boundaries before forwarding.
-4. Export routing API from `src/gamenet/index.ts` when ready for external use.
-5. Replace base64 with more efficient binary encoding (e.g., MessagePack, direct ArrayBuffer transfer).
-6. Add route discovery mechanisms for clients to discover other clients' IDs.
-7. Support multi-hop forwarding through intermediate peers.
+4. Replace base64 with more efficient binary encoding (e.g., MessagePack, direct ArrayBuffer transfer).
+5. Add route discovery mechanisms for clients to discover other clients' IDs.
+6. Support multi-hop forwarding through intermediate peers.
 
 ## Current limitations and known issues
 
-- Routing API is internal and not publicly accessible via `src/gamenet/index.ts`
 - Base64 encoding adds ~33% overhead for binary payloads over WebRTC
 - No built-in persistence or retry strategy at router level
 - Route lifecycle for adapter-owned clients depends on adapter hook correctness (`onClientAdd`/`onClientRemove`)
@@ -383,12 +383,19 @@ sequenceDiagram
 
 ## File index
 
-- `src/gamenet/routing/message.ts` — `Message` type
-- `src/gamenet/routing/client.ts` — `Client` type and `createClient`
-- `src/gamenet/routing/adapter.ts` — `Adapter`, `ClientAdapterSession`, `ServerAdapterSession`, `ServerAdapterManager`
-- `src/gamenet/routing/worker_adapter.ts` — `createWorkerAdapter`, `createWorkerServerAdapterManager`
-- `src/gamenet/routing/adapter_webrtc.ts` — WebRTC adapter, session, and manager implementations
-- `src/gamenet/routing/envelope_payload.ts` — `decodeRoutingEnvelopePayload`
-- `src/gamenet/routing/router.ts` — `Router` and `createRouter`
-- `src/gamenet/routing/host_server_worker.ts` — Worker entry point for hosted game server
-- `src/pages/Host.tsx` — UI orchestrator: worker hosting, local host-client, external client bridging
+### Library (`packages/gamenet/src/routing/`)
+
+- `message.ts` — `Message` type
+- `client.ts` — `Client` type and `createClient`
+- `adapter.ts` — `Adapter`, `ClientAdapterSession`, `ServerAdapterSession`, `ServerAdapterManager`
+- `worker_adapter.ts` — `createWorkerAdapter`, `createWorkerServerAdapterManager`
+- `adapter_webrtc.ts` — WebRTC adapter, session, and manager implementations
+- `envelope_payload.ts` — `decodeRoutingEnvelopePayload`
+- `router.ts` — `Router` and `createRouter`
+- `host_server_worker_setup.ts` — `setupHostServerWorker` (exported as `@gamenet/core/worker-setup`)
+- `host_server_worker.ts` — Reference worker entry point
+
+### Example app (`apps/example/src/`)
+
+- `pages/Host.tsx` — UI orchestrator: worker hosting, local host-client, external client bridging
+- `workers/host_server_worker.ts` — Worker entry point (uses `@gamenet/core/worker-setup`)

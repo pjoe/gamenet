@@ -1,10 +1,10 @@
 import type {
   ClientsPingListEntry,
   ClientsPingListPayload,
-} from "@gamenet/clients_ping_list";
+} from "@gamenet/core";
+import { useGame } from "@gamenet/core/react";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { useGame } from "../contexts/GameContext";
 
 function Game() {
   const { session, endSession } = useGame();
