@@ -1,4 +1,3 @@
-import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera";
 import {
   NullEngine,
   type NullEngineOptions,
@@ -9,6 +8,7 @@ import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { Scene } from "@babylonjs/core/scene";
 import HavokPhysics from "@babylonjs/havok";
 import HavokInit from "../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
+import { setupScene } from "./scene_setup";
 
 const DEFAULT_NULL_ENGINE_OPTIONS: NullEngineOptions = {
   renderWidth: 1,
@@ -28,8 +28,6 @@ export async function setupBabylonServer() {
 
   //scene
   const scene = new Scene(engine);
-  // dummy camera
-  new FreeCamera("dummy", new Vector3(0, 0, 0), scene);
 
   // physics
   console.debug("Loading Havok physics...");
@@ -39,6 +37,18 @@ export async function setupBabylonServer() {
   scene.enablePhysics(new Vector3(0, -9.8, 0), havokPlugin);
   scene.getPhysicsEngine()?.setTimeStep(engine.getTimeStep() / 1000);
   console.debug("Havok physics loaded and enabled in the scene.");
+
+  // setup scene
+  if (scene.isReady()) {
+    console.debug("Scene is already ready. Setting up...");
+    setupScene(scene);
+  } else {
+    console.debug("Waiting for scene to be ready...");
+    scene.onReadyObservable.addOnce(() => {
+      console.debug("Scene is now ready. Setting up...");
+      setupScene(scene);
+    });
+  }
 
   let frame = 0;
   const render = () => {

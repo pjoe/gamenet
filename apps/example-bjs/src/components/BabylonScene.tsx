@@ -11,6 +11,7 @@ function BabylonScene({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<Engine | null>(null);
+  const disposeTimerRef = useRef<number | null>(null);
 
   const onSceneReadyRef = useRef(onSceneReady);
   useEffect(() => {
@@ -41,18 +42,28 @@ function BabylonScene({
     return { engine, scene };
   }, []);
 
-  // Handle canvas ref callback
+  // Handle canvas ref callback with deferred disposal for StrictMode compat
   const setCanvasRef = useCallback(
     (node: HTMLCanvasElement | null) => {
-      if (canvasRef.current === node) return;
-      // Cleanup previous engine
-      if (engineRef.current) {
-        engineRef.current.dispose();
-        engineRef.current = null;
-      }
-      canvasRef.current = node;
       if (node) {
+        // Cancel any pending disposal (StrictMode remount)
+        if (disposeTimerRef.current !== null) {
+          cancelAnimationFrame(disposeTimerRef.current);
+          disposeTimerRef.current = null;
+        }
+        if (canvasRef.current === node && engineRef.current) return;
+        canvasRef.current = node;
+        // Reuse existing engine if still alive
+        if (engineRef.current) return;
         initScene(node);
+      } else {
+        canvasRef.current = null;
+        // Defer disposal — allows StrictMode remount to cancel it
+        disposeTimerRef.current = requestAnimationFrame(() => {
+          engineRef.current?.dispose();
+          engineRef.current = null;
+          disposeTimerRef.current = null;
+        });
       }
     },
     [initScene]
@@ -66,14 +77,6 @@ function BabylonScene({
     window.addEventListener("resize", handleResize);
     return () => {
       window.removeEventListener("resize", handleResize);
-    };
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      engineRef.current?.dispose();
-      engineRef.current = null;
     };
   }, []);
 
