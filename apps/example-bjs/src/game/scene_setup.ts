@@ -7,6 +7,9 @@ import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
 import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import type { Scene } from "@babylonjs/core/scene";
 
+// Side-effect imports
+import "@babylonjs/core/Materials/standardMaterial";
+
 export function setupScene(scene: Scene) {
   scene.clearColor = new Color4(0.1, 0.1, 0.15, 1);
 
