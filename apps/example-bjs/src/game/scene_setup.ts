@@ -53,5 +53,5 @@ export function setupScene(scene: Scene, isServer = false) {
   sphere.material = sphereMat;
 
   // Player
-  setupPlayer(scene);
+  setupPlayer({ nickname: "Player1", color: new Color3(0.8, 0.2, 0.2) }, scene);
 }

@@ -4,10 +4,19 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
+import { addNodeEntity, createComponent } from "@skyboxgg/bjs-ecs";
 
-export function setupPlayer(scene: Scene) {
-  const player = new TransformNode("player", scene);
-  player.position = new Vector3(0, 0, 0);
+export const player = createComponent(
+  "player",
+  (nickname: string, color: Color3) => ({ nickname, color })
+);
+
+export function setupPlayer(
+  options: { nickname: string; color: Color3 },
+  scene: Scene
+) {
+  const playerNode = new TransformNode("player", scene);
+  playerNode.position = new Vector3(0, 0, 0);
 
   const height = 1.8;
   const mesh = CreateCylinder(
@@ -16,12 +25,17 @@ export function setupPlayer(scene: Scene) {
     scene
   );
   mesh.position.y = height / 2;
-  mesh.parent = player;
+  mesh.parent = playerNode;
 
   const mat = new StandardMaterial("playerMat", scene);
-  mat.diffuseColor = new Color3(0.8, 0.3, 0.2);
+  mat.diffuseColor = options.color;
   mat.specularColor = new Color3(0.3, 0.3, 0.3);
   mesh.material = mat;
 
-  return player;
+  const entity = addNodeEntity(playerNode, [
+    player(options.nickname, mat.diffuseColor),
+    "netsync",
+  ]);
+
+  return entity;
 }
