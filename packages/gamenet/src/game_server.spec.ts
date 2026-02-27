@@ -37,7 +37,7 @@ describe("hostGame", () => {
     });
 
     const channelPromise = new Promise<Channel>((resolve) => {
-      server.onConnection((channel) => resolve(channel));
+      server.onConnection = (channel) => resolve(channel);
     });
 
     const remoteId = "worker-client-1";
@@ -99,7 +99,7 @@ describe("hostGame", () => {
       createAdapterManager: () => manager,
     });
 
-    server.onConnection(() => {});
+    server.onConnection = () => {};
 
     const remoteId = "worker-client-2";
     const adapter = createMockAdapter("worker-adapter-2", remoteId);
@@ -154,7 +154,7 @@ describe("hostGame", () => {
     const server = await hostGame({
       createAdapterManager: () => manager,
     });
-    server.onConnection(() => {});
+    server.onConnection = () => {};
 
     const remoteId = "stale-client";
     const adapter = createMockAdapter("worker-adapter-stale", remoteId);

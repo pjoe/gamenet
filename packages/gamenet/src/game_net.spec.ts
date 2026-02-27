@@ -105,7 +105,7 @@ describe("gameNet", () => {
 
       const onConnectionPromise = withTimeout(
         new Promise<Channel>((resolve) => {
-          gameServer.onConnection((channel) => resolve(channel));
+          gameServer.onConnection = (channel) => resolve(channel);
         })
       );
 
