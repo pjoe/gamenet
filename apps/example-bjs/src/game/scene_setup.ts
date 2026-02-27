@@ -1,4 +1,5 @@
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
+import { Camera } from "@babylonjs/core/Cameras/camera";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
@@ -10,29 +11,30 @@ import type { Scene } from "@babylonjs/core/scene";
 // Side-effect imports
 import "@babylonjs/core/Materials/standardMaterial";
 
-export function setupScene(scene: Scene) {
+export function setupScene(scene: Scene, isServer = false) {
   scene.clearColor = new Color4(0.1, 0.1, 0.15, 1);
 
-  const canvas = scene.getEngine().getRenderingCanvas();
+  if (isServer) {
+    // Minimal camera so Babylon doesn't complain about a missing active camera
+    new Camera("camera", Vector3.Zero(), scene);
+  } else {
+    // Camera — orbitable
+    const camera = new ArcRotateCamera(
+      "camera",
+      -Math.PI / 2,
+      Math.PI / 3,
+      10,
+      Vector3.Zero(),
+      scene
+    );
+    camera.lowerRadiusLimit = 3;
+    camera.upperRadiusLimit = 30;
+    camera.attachControl();
 
-  // Camera — orbitable
-  const camera = new ArcRotateCamera(
-    "camera",
-    -Math.PI / 2,
-    Math.PI / 3,
-    10,
-    Vector3.Zero(),
-    scene
-  );
-  camera.lowerRadiusLimit = 3;
-  camera.upperRadiusLimit = 30;
-  if (canvas) {
-    camera.attachControl(canvas, true);
+    // Light
+    const light = new HemisphericLight("light", new Vector3(0, 1, 0), scene);
+    light.intensity = 0.9;
   }
-
-  // Light
-  const light = new HemisphericLight("light", new Vector3(0, 1, 0), scene);
-  light.intensity = 0.9;
 
   // Ground
   const ground = CreateGround("ground", { width: 20, height: 20 }, scene);

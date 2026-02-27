@@ -41,12 +41,12 @@ export async function setupBabylonServer() {
   // setup scene
   if (scene.isReady()) {
     console.debug("Scene is already ready. Setting up...");
-    setupScene(scene);
+    setupScene(scene, true);
   } else {
     console.debug("Waiting for scene to be ready...");
     scene.onReadyObservable.addOnce(() => {
       console.debug("Scene is now ready. Setting up...");
-      setupScene(scene);
+      setupScene(scene, true);
     });
   }
 
