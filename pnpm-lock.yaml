@@ -108,6 +108,9 @@ importers:
       '@gamenet/example-ui':
         specifier: workspace:*
         version: link:../../packages/example-ui
+      '@skyboxgg/bjs-ecs':
+        specifier: ^0.4.1
+        version: 0.4.1(@babylonjs/core@8.52.0)
       react:
         specifier: ^19.2.4
         version: 19.2.4
@@ -862,6 +865,11 @@ packages:
 
   '@sinonjs/fake-timers@13.0.5':
     resolution: {integrity: sha512-36/hTbH2uaWuGVERyC6da9YwGWnzUZXuPro/F2LfsdOsLnCojz/iSH8MxUt/FD2S5XBSVPhmArFUXcpCQ2Hkiw==}
+
+  '@skyboxgg/bjs-ecs@0.4.1':
+    resolution: {integrity: sha512-1vwbpQufzo0dzp/tmXwjocrCPVmMLckmVjg3X0fiuFoM/+EEFBnSDIH5Byl32tsvcEQtOCfiQF572x0U9gMkow==}
+    peerDependencies:
+      '@babylonjs/core': '>=7.1.0'
 
   '@tailwindcss/node@4.2.0':
     resolution: {integrity: sha512-Yv+fn/o2OmL5fh/Ir62VXItdShnUxfpkMA4Y7jdeC8O81WPB8Kf6TT6GSHvnqgSwDzlB5iT7kDpeXxLsUS0T6Q==}
@@ -3372,6 +3380,11 @@ snapshots:
   '@sinonjs/fake-timers@13.0.5':
     dependencies:
       '@sinonjs/commons': 3.0.1
+
+  '@skyboxgg/bjs-ecs@0.4.1(@babylonjs/core@8.52.0)':
+    dependencies:
+      '@babylonjs/core': 8.52.0
+      mitt: 3.0.1
 
   '@tailwindcss/node@4.2.0':
     dependencies:
