@@ -75,8 +75,23 @@ export async function setupBabylonServer() {
   return {
     onGameServerReady: (gameServer: GameServer) => {
       gameServer.onConnection = async (channel) => {
-        // wait for ready from client
-        await new Promise((resolve) => channel.on("ready", resolve));
+        // initial handshake
+        let clientReadyReceived = 0;
+        channel.on("ready", (_, ack) => {
+          clientReadyReceived = ack + 1;
+        });
+        for (let i = 0; i < 10; ++i) {
+          channel.emit("ready", clientReadyReceived, { reliable: true });
+          if (clientReadyReceived > 1) {
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        if (clientReadyReceived < 1) {
+          console.error("Failed to handshake with client");
+          throw new Error("Failed to handshake with client");
+        }
+        await new Promise((resolve) => setTimeout(resolve, 60));
 
         channel.emit("msg", "Welcome to the babylon server!");
 
