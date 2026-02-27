@@ -7,6 +7,7 @@ import "@babylonjs/core/Physics/v2/physicsEngineComponent";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { Scene } from "@babylonjs/core/scene";
 import HavokPhysics from "@babylonjs/havok";
+import { GameServer } from "@gamenet/core";
 import HavokInit from "../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { setupScene } from "./scene_setup";
 
@@ -41,12 +42,12 @@ export async function setupBabylonServer() {
   // setup scene
   if (scene.isReady()) {
     console.debug("Scene is already ready. Setting up...");
-    setupScene(scene, true);
+    await setupScene(scene, true);
   } else {
     console.debug("Waiting for scene to be ready...");
-    scene.onReadyObservable.addOnce(() => {
+    scene.onReadyObservable.addOnce(async () => {
       console.debug("Scene is now ready. Setting up...");
-      setupScene(scene, true);
+      await setupScene(scene, true);
     });
   }
 
@@ -67,4 +68,12 @@ export async function setupBabylonServer() {
   render();
 
   console.debug("Babylon.js server setup complete");
+
+  return {
+    onGameServerReady: (gameServer: GameServer) => {
+      gameServer.onConnection = async (channel) => {
+        channel.emit("msg", "Welcome to the babylon server!");
+      };
+    },
+  };
 }

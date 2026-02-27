@@ -38,7 +38,8 @@ export interface GameServer {
   sessions: Map<string, ServerAdapterSession>;
   router: Router;
   adapters: Map<string, Adapter>;
-  onConnection: (handler: (channel: Channel) => void) => void;
+  get onConnection(): (channel: Channel) => void;
+  set onConnection(handler: (channel: Channel) => void);
   dispose: () => void;
 }
 
@@ -81,7 +82,10 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
     sessions: manager.sessions,
     router,
     adapters: new Map<string, Adapter>(),
-    onConnection(handler) {
+    get onConnection() {
+      return onConnectionHandler;
+    },
+    set onConnection(handler: (channel: Channel) => void) {
       onConnectionHandler = handler;
     },
     dispose() {
