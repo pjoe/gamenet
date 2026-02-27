@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import BabylonScene from "../components/BabylonScene";
 import GameSidebar from "../components/GameSidebar";
-import { setupScene } from "../game/scene_setup";
+import { setupBabylonClient } from "../game/client";
 
 function Game() {
   const { session, endSession } = useGame();
@@ -65,7 +65,9 @@ function Game() {
 
   return (
     <div className="relative w-full" style={{ height: "calc(100vh - 4rem)" }}>
-      <BabylonScene onSceneReady={setupScene} />
+      <BabylonScene
+        onSceneReady={(scene) => setupBabylonClient(gameClient, scene)}
+      />
       <GameSidebar
         serverId={serverId}
         isHost={isHost}
