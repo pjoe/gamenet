@@ -10,6 +10,9 @@ const workerScope = self as unknown as HostServerWorkerScope;
 
 try {
   const server = await setupHostServerWorker(workerScope);
+  server.onConnection = async (channel) => {
+    console.debug("New client connected to host server worker");
+  };
   const bjsServerPromise = setupBabylonServer();
   server.onConnection = async (channel) => {
     const bjsServer = await bjsServerPromise;

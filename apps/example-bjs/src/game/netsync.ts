@@ -1,4 +1,6 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
 import { queryXforms, xform } from "@skyboxgg/bjs-ecs";
 import { player, setupPlayer } from "./player_setup";
@@ -16,10 +18,15 @@ export function writeCreateEntities() {
       }
       if (key === "xform") {
         const xformVal = (comp as ReturnType<typeof xform>).value;
-        compData = {
-          pos: xformVal.position,
-          rot: xformVal.rotationQuaternion ?? xformVal.rotation,
-        };
+        compData = xformVal.rotationQuaternion
+          ? {
+              pos: xformVal.position,
+              quat: xformVal.rotationQuaternion,
+            }
+          : {
+              pos: xformVal.position,
+              rot: xformVal.rotation,
+            };
       }
       if (compData) {
         return { k: key, v: compData };
@@ -49,24 +56,39 @@ export function readCreateEntities(data: unknown, scene: Scene) {
       `Creating entity serverId:${e.id} (${e.name}) with comps:`,
       comps
     );
+    let xformNode: TransformNode | undefined = undefined;
     if (comps.player) {
       // create player
       const playerComp = comps.player as {
         nickname: string;
-        color: { r: number; g: number; b: number };
+        color: Color3;
       };
-      setupPlayer(
+      const playerNode = setupPlayer(
         {
           id: e.id,
           nickname: playerComp.nickname,
-          color: Color3.FromArray([
-            playerComp.color.r,
-            playerComp.color.g,
-            playerComp.color.b,
-          ]),
+          color: new Color3().copyFrom(playerComp.color),
         },
         scene
       );
+      xformNode = playerNode;
+    }
+
+    // xform
+    if (comps.xform && xformNode) {
+      const xformComp = comps.xform as {
+        pos: Vector3;
+        rot: Vector3 | undefined;
+        quat: Quaternion | undefined;
+      };
+      xformNode.position.copyFrom(xformComp.pos);
+      if (xformComp.quat) {
+        xformNode.rotationQuaternion = new Quaternion().copyFrom(
+          xformComp.quat
+        );
+      } else if (xformComp.rot) {
+        xformNode.rotation.copyFrom(xformComp.rot);
+      }
     }
   });
 }

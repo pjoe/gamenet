@@ -75,17 +75,22 @@ export async function setupBabylonServer() {
   return {
     onGameServerReady: (gameServer: GameServer) => {
       gameServer.onConnection = async (channel) => {
+        // wait for ready from client
+        await new Promise((resolve) => channel.on("ready", resolve));
+
         channel.emit("msg", "Welcome to the babylon server!");
 
         // create player
-        await setupPlayer(
+        const playerNode = setupPlayer(
           {
             id: channel.clientId,
             nickname: "Player_" + channel.nickname,
-            color: new Color3(0.8, 0.2, 0.2),
+            color: Color3.Random(),
           },
           scene
         );
+        playerNode.position.x = Math.random() * 4 - 2;
+        playerNode.position.z = Math.random() * 4 - 2;
 
         channel.emit("create-entities", writeCreateEntities(), {
           reliable: true,
