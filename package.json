@@ -43,9 +43,9 @@
       "esbuild",
       "node-datachannel",
       "unrs-resolver"
-    ]
-  },
-  "overrides": {
-    "minimatch": "^10.2.1"
+    ],
+    "overrides": {
+      "minimatch": ">=10.2.3"
+    }
   }
 }
