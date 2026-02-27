@@ -13,7 +13,8 @@ import "./index.css";
 // Signal server initialization (moved from library to app responsibility)
 const signalKind = import.meta.env.VITE_SIGNAL_SERVER_KIND;
 const signalUrl = import.meta.env.VITE_SIGNAL_SERVER_URL;
-const DEFAULT_SIGNAL_SERVER_URL = "wss://test.mosquitto.org:8081";
+// const DEFAULT_SIGNAL_SERVER_URL = "wss://test.mosquitto.org:8081";
+const DEFAULT_SIGNAL_SERVER_URL = "wss://broker.emqx.io:8084/mqtt";
 
 function getDefaultMqttUrl() {
   if (
@@ -22,7 +23,7 @@ function getDefaultMqttUrl() {
   ) {
     return DEFAULT_SIGNAL_SERVER_URL;
   }
-  return "wss://test.mosquitto.org:8081";
+  return DEFAULT_SIGNAL_SERVER_URL;
 }
 
 function selectDefaultSignalServer() {
