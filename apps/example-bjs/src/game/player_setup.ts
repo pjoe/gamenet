@@ -32,10 +32,10 @@ export function setupPlayer(
   mat.specularColor = new Color3(0.3, 0.3, 0.3);
   mesh.material = mat;
 
-  addNodeEntity(playerNode, [
+  const playerEntity = addNodeEntity(playerNode, [
     player(options.nickname, mat.diffuseColor),
     "netsync",
   ]);
 
-  return playerNode;
+  return { playerNode, playerEntity };
 }

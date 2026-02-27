@@ -40,6 +40,7 @@ export interface GameServer {
   adapters: Map<string, Adapter>;
   get onConnection(): (channel: Channel) => void;
   set onConnection(handler: (channel: Channel) => void);
+  broadcast: (ev: string, e: any, options?: EmitOptions) => void;
   dispose: () => void;
 }
 
@@ -87,6 +88,11 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
     },
     set onConnection(handler: (channel: Channel) => void) {
       onConnectionHandler = handler;
+    },
+    broadcast(ev, e, options) {
+      channels.forEach((channel) => {
+        channel.emit(ev, e, options);
+      });
     },
     dispose() {
       clearInterval(clientsPingListInterval);

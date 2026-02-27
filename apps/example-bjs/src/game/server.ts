@@ -10,7 +10,7 @@ import { Scene } from "@babylonjs/core/scene";
 import HavokPhysics from "@babylonjs/havok";
 import { GameServer } from "@gamenet/core";
 import HavokInit from "../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
-import { writeCreateEntities } from "./netsync";
+import { writeCreateEntities, writeEntity } from "./netsync";
 import { setupPlayer } from "./player_setup";
 import { setupScene } from "./scene_setup";
 
@@ -95,8 +95,12 @@ export async function setupBabylonServer() {
 
         channel.emit("msg", "Welcome to the babylon server!");
 
+        channel.emit("create-entities", writeCreateEntities(), {
+          reliable: true,
+        });
+
         // create player
-        const playerNode = setupPlayer(
+        const { playerNode, playerEntity } = setupPlayer(
           {
             id: channel.clientId,
             nickname: "Player_" + channel.nickname,
@@ -107,7 +111,7 @@ export async function setupBabylonServer() {
         playerNode.position.x = Math.random() * 4 - 2;
         playerNode.position.z = Math.random() * 4 - 2;
 
-        channel.emit("create-entities", writeCreateEntities(), {
+        gameServer.broadcast("add-entity", writeEntity(playerEntity), {
           reliable: true,
         });
       };

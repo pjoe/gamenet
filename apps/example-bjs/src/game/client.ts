@@ -1,11 +1,11 @@
 import { Scene } from "@babylonjs/core/scene";
 import { GameClient } from "@gamenet/core";
-import { readCreateEntities } from "./netsync";
+import { readCreateEntities, readEntity } from "./netsync";
 import { setupScene } from "./scene_setup";
 
 export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   console.debug("Setting up Babylon.js client scene...");
-  const setupPromise = setupScene(scene, false);
+  await setupScene(scene, false);
 
   // initial handshake
   let serverReadyReceived = 0;
@@ -15,6 +15,7 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   for (let i = 0; i < 10; ++i) {
     gameClient.emit("ready", serverReadyReceived, { reliable: true });
     if (serverReadyReceived > 1) {
+      console.debug("Handshake with server complete");
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -25,11 +26,12 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   }
 
   gameClient.on("msg", async (data) => {
-    await setupPromise;
     console.debug("Received msg:", data);
   });
   gameClient.on("create-entities", async (data) => {
-    await setupPromise;
     readCreateEntities(data, scene);
+  });
+  gameClient.on("add-entity", async (data) => {
+    readEntity(data, scene);
   });
 }
