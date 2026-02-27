@@ -50,7 +50,7 @@ export async function setupBabylonServer() {
     }
     ++frame;
     if (frame % 64 === 0) {
-      console.debug(`Server time: ${frame / 64}`);
+      // console.debug(`Server time: ${frame / 64}`);
     }
   };
 
