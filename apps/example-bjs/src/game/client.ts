@@ -9,4 +9,8 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     await setupPromise;
     console.debug("Received msg:", data);
   });
+  gameClient.on("create-entities", async (data) => {
+    await setupPromise;
+    console.debug("Received create-entities:", data);
+  });
 }

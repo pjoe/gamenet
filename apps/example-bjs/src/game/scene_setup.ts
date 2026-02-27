@@ -7,7 +7,6 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
 import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import type { Scene } from "@babylonjs/core/scene";
-import { setupPlayer } from "./player_setup";
 
 // Side-effect imports
 import "@babylonjs/core/Materials/standardMaterial";
@@ -51,10 +50,4 @@ export async function setupScene(scene: Scene, isServer = false) {
   sphereMat.diffuseColor = new Color3(0.2, 0.5, 0.9);
   sphereMat.specularColor = new Color3(0.4, 0.4, 0.4);
   sphere.material = sphereMat;
-
-  // Player
-  await setupPlayer(
-    { nickname: "Player1", color: new Color3(0.8, 0.2, 0.2) },
-    scene
-  );
 }

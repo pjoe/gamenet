@@ -2,13 +2,16 @@ import {
   NullEngine,
   type NullEngineOptions,
 } from "@babylonjs/core/Engines/nullEngine";
+import { Color3 } from "@babylonjs/core/Maths/math";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import "@babylonjs/core/Physics/v2/physicsEngineComponent";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { Scene } from "@babylonjs/core/scene";
 import HavokPhysics from "@babylonjs/havok";
 import { GameServer } from "@gamenet/core";
+import { queryXforms } from "@skyboxgg/bjs-ecs";
 import HavokInit from "../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
+import { player, setupPlayer } from "./player_setup";
 import { setupScene } from "./scene_setup";
 
 const DEFAULT_NULL_ENGINE_OPTIONS: NullEngineOptions = {
@@ -73,6 +76,35 @@ export async function setupBabylonServer() {
     onGameServerReady: (gameServer: GameServer) => {
       gameServer.onConnection = async (channel) => {
         channel.emit("msg", "Welcome to the babylon server!");
+
+        // create player
+        await setupPlayer(
+          {
+            id: channel.clientId,
+            nickname: "Player_" + channel.nickname,
+            color: new Color3(0.8, 0.2, 0.2),
+          },
+          scene
+        );
+
+        const entities = queryXforms(["netsync"]);
+        const data = entities.map((e) => {
+          const comps = Object.entries(e.comps).map(([key, comp]) => {
+            let compData = undefined;
+            if (key === "player") {
+              compData = {
+                nickname: (comp as ReturnType<typeof player>).value.nickname,
+                color: (comp as ReturnType<typeof player>).value.color,
+              };
+            }
+            if (compData) {
+              return { k: key, v: compData };
+            }
+            return { k: key };
+          });
+          return { id: e.id, name: e.xform.name, comps };
+        });
+        channel.emit("create-entities", data, { reliable: true });
       };
     },
   };

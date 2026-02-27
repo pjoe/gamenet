@@ -12,10 +12,10 @@ export const player = createComponent(
 );
 
 export function setupPlayer(
-  options: { nickname: string; color: Color3 },
+  options: { id: string; nickname: string; color: Color3 },
   scene: Scene
 ) {
-  const playerNode = new TransformNode("player", scene);
+  const playerNode = new TransformNode("player_" + options.id, scene);
   playerNode.position = new Vector3(0, 0, 0);
 
   const height = 1.8;
