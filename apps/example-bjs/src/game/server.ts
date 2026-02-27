@@ -114,6 +114,18 @@ export async function setupBabylonServer() {
         gameServer.broadcast("add-entity", writeEntity(playerEntity), {
           reliable: true,
         });
+
+        channel.onDisconnect(() => {
+          console.debug(`Client ${channel.clientId} disconnected`);
+          gameServer.broadcast(
+            "remove-entity",
+            { id: playerEntity.id },
+            {
+              reliable: true,
+            }
+          );
+          playerNode.dispose();
+        });
       };
     },
   };

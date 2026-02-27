@@ -1,3 +1,4 @@
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
 import { GameClient } from "@gamenet/core";
 import { readCreateEntities, readEntity } from "./netsync";
@@ -25,13 +26,23 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     throw new Error("Failed to handshake with server");
   }
 
+  const serverIdMap = new Map<number, TransformNode>();
+
   gameClient.on("msg", async (data) => {
     console.debug("Received msg:", data);
   });
   gameClient.on("create-entities", async (data) => {
-    readCreateEntities(data, scene);
+    readCreateEntities(data, serverIdMap, scene);
   });
   gameClient.on("add-entity", async (data) => {
-    readEntity(data, scene);
+    readEntity(data, serverIdMap, scene);
+  });
+  gameClient.on("remove-entity", async (data) => {
+    const e = data as { id: number };
+    const clientId = serverIdMap.get(e.id);
+    if (clientId) {
+      clientId.dispose();
+      serverIdMap.delete(e.id);
+    }
   });
 }

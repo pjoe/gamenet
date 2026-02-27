@@ -42,8 +42,11 @@ export function writeCreateEntities() {
   return data;
 }
 
+export type ServerEntityIdMap = Map<number, TransformNode>;
+
 export function readEntity(
-  e: { id: string; name: string; comps: Array<{ k: string; v?: unknown }> },
+  e: { id: number; name: string; comps: Array<{ k: string; v?: unknown }> },
+  idMap: ServerEntityIdMap,
   scene: Scene
 ) {
   const comps = e.comps.reduce(
@@ -66,12 +69,13 @@ export function readEntity(
     };
     const { playerNode } = setupPlayer(
       {
-        id: e.id,
+        id: "entity" + e.id,
         nickname: playerComp.nickname,
         color: new Color3().copyFrom(playerComp.color),
       },
       scene
     );
+    idMap.set(Number(e.id), playerNode);
     xformNode = playerNode;
   }
 
@@ -91,11 +95,15 @@ export function readEntity(
   }
 }
 
-export function readCreateEntities(data: unknown, scene: Scene) {
+export function readCreateEntities(
+  data: unknown,
+  idMap: ServerEntityIdMap,
+  scene: Scene
+) {
   const entities = data as Array<{
-    id: string;
+    id: number;
     name: string;
     comps: Array<{ k: string; v?: unknown }>;
   }>;
-  entities.forEach((e) => readEntity(e, scene));
+  entities.forEach((e) => readEntity(e, idMap, scene));
 }
