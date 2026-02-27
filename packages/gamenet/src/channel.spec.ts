@@ -6,8 +6,8 @@ describe("channel id generation", () => {
     expect(id).toHaveLength(21);
   });
 
-  it("creates host id with 6-digit numeric format", async () => {
+  it("creates host id with 7-digit numeric format", async () => {
     const id = await createHostChannelId();
-    expect(id).toMatch(/^\d{6}$/);
+    expect(id).toMatch(/^\d{7}$/);
   });
 });

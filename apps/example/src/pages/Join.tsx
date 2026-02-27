@@ -65,8 +65,8 @@ function Join() {
             label="Game Code"
             value={serverId}
             onChange={(e) => setServerId(e.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="Enter 6-digit code"
-            maxLength={6}
+            placeholder="Enter 7-digit code"
+            maxLength={7}
             disabled={joinState !== "idle"}
             required
             mono
