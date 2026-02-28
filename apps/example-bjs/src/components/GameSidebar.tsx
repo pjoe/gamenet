@@ -69,9 +69,31 @@ function GameSidebar({
               <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-1 transition-colors duration-200">
                 Game Code
               </p>
-              <p className="text-2xl font-mono font-bold text-[var(--color-accent-blue)] transition-colors duration-200">
-                {serverId}
-              </p>
+              <div className="flex items-center justify-center gap-1.5">
+                <p className="text-2xl font-mono font-bold text-[var(--color-accent-blue)] transition-colors duration-200">
+                  {serverId}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(serverId)}
+                  className="p-1 rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors duration-200"
+                  aria-label="Copy game code"
+                  title="Copy game code"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+              </div>
               <p className="text-[var(--color-text-secondary)] text-xs mt-1 transition-colors duration-200">
                 {isHost
                   ? "Share this code with players"
