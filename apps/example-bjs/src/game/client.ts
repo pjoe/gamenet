@@ -1,7 +1,7 @@
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
 import { GameClient } from "@gamenet/core";
-import { readCreateEntities, readEntity } from "./netsync";
+import { removeEntity } from "@skyboxgg/bjs-ecs";
+import { readCreateEntities, readEntity, ServerEntityIdMap } from "./netsync";
 import { setupScene } from "./scene_setup";
 
 export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
@@ -26,7 +26,7 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     throw new Error("Failed to handshake with server");
   }
 
-  const serverIdMap = new Map<number, TransformNode>();
+  const serverIdMap: ServerEntityIdMap = new Map();
 
   gameClient.on("msg", async (data) => {
     console.debug("Received msg:", data);
@@ -39,9 +39,9 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   });
   gameClient.on("remove-entity", async (data) => {
     const e = data as { id: number };
-    const clientId = serverIdMap.get(e.id);
-    if (clientId) {
-      clientId.dispose();
+    const clientEntity = serverIdMap.get(e.id);
+    if (clientEntity) {
+      removeEntity(clientEntity);
       serverIdMap.delete(e.id);
     }
   });

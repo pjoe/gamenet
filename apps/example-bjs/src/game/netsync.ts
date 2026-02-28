@@ -2,8 +2,15 @@ import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
-import { Entity, queryXforms, xform } from "@skyboxgg/bjs-ecs";
-import { player, setupPlayer } from "./player_setup";
+import {
+  addNodeEntity,
+  Comp,
+  Entity,
+  queryXforms,
+  xform,
+} from "@skyboxgg/bjs-ecs";
+import { player } from "./player_comp";
+import { setupPlayer } from "./player_setup";
 
 export function writeEntity(e: Entity<["netsync"]>) {
   let name = "nameless";
@@ -11,13 +18,14 @@ export function writeEntity(e: Entity<["netsync"]>) {
     let compData = undefined;
     if (key === "player") {
       compData = {
+        id: (comp as ReturnType<typeof player>).value.id,
         nickname: (comp as ReturnType<typeof player>).value.nickname,
         color: (comp as ReturnType<typeof player>).value.color,
       };
     }
     if (key === "xform") {
       const xformVal = (comp as ReturnType<typeof xform>).value;
-      name = xform.name;
+      name = xformVal.name;
       compData = xformVal.rotationQuaternion
         ? {
             pos: xformVal.position,
@@ -42,7 +50,7 @@ export function writeCreateEntities() {
   return data;
 }
 
-export type ServerEntityIdMap = Map<number, TransformNode>;
+export type ServerEntityIdMap = Map<number, Entity<["netsync"]>>;
 
 export function readEntity(
   e: { id: number; name: string; comps: Array<{ k: string; v?: unknown }> },
@@ -61,37 +69,56 @@ export function readEntity(
     comps
   );
   let xformNode: TransformNode | undefined = undefined;
+  const compsToAdd: (Comp | string)[] = ["netsync"];
   if (comps.player) {
     // create player
     const playerComp = comps.player as {
+      id: string;
       nickname: string;
       color: Color3;
     };
+
+    // skip if already exists
+    const players = queryXforms([player]);
+    if (players.find((p) => p.player.id === playerComp.id)) {
+      console.debug(
+        `Player with id ${playerComp.id} already exists, skipping creation`
+      );
+      return;
+    }
+
+    const color = new Color3().copyFrom(playerComp.color);
     const { playerNode } = setupPlayer(
       {
-        id: "entity" + e.id,
+        id: playerComp.id,
         nickname: playerComp.nickname,
-        color: new Color3().copyFrom(playerComp.color),
+        color,
       },
       scene
     );
-    idMap.set(Number(e.id), playerNode);
+    compsToAdd.push(player(playerComp.id, playerComp.nickname, color));
     xformNode = playerNode;
   }
 
   // xform
-  if (comps.xform && xformNode) {
-    const xformComp = comps.xform as {
-      pos: Vector3;
-      rot: Vector3 | undefined;
-      quat: Quaternion | undefined;
-    };
-    xformNode.position.copyFrom(xformComp.pos);
-    if (xformComp.quat) {
-      xformNode.rotationQuaternion = new Quaternion().copyFrom(xformComp.quat);
-    } else if (xformComp.rot) {
-      xformNode.rotation.copyFrom(xformComp.rot);
+  if (xformNode) {
+    if (comps.xform) {
+      const xformComp = comps.xform as {
+        pos: Vector3;
+        rot: Vector3 | undefined;
+        quat: Quaternion | undefined;
+      };
+      xformNode.position.copyFrom(xformComp.pos);
+      if (xformComp.quat) {
+        xformNode.rotationQuaternion = new Quaternion().copyFrom(
+          xformComp.quat
+        );
+      } else if (xformComp.rot) {
+        xformNode.rotation.copyFrom(xformComp.rot);
+      }
     }
+    const entity = addNodeEntity(xformNode, compsToAdd);
+    idMap.set(Number(e.id), entity);
   }
 }
 

@@ -9,8 +9,10 @@ import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { Scene } from "@babylonjs/core/scene";
 import HavokPhysics from "@babylonjs/havok";
 import { GameServer } from "@gamenet/core";
+import { addNodeEntity, entityEvents } from "@skyboxgg/bjs-ecs";
 import HavokInit from "../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { writeCreateEntities, writeEntity } from "./netsync";
+import { player } from "./player_comp";
 import { setupPlayer } from "./player_setup";
 import { setupScene } from "./scene_setup";
 
@@ -74,6 +76,20 @@ export async function setupBabylonServer() {
 
   return {
     onGameServerReady: (gameServer: GameServer) => {
+      // handle adding/removing of entities
+      entityEvents.on("add", ["netsync"], (entity) => {
+        gameServer.broadcast("add-entity", writeEntity(entity), {
+          reliable: true,
+        });
+      });
+      entityEvents.on("remove", ["netsync"], (entity) => {
+        gameServer.broadcast(
+          "remove-entity",
+          { id: entity.id },
+          { reliable: true }
+        );
+      });
+
       gameServer.onConnection = async (channel) => {
         // initial handshake
         let clientReadyReceived = 0;
@@ -100,30 +116,25 @@ export async function setupBabylonServer() {
         });
 
         // create player
-        const { playerNode, playerEntity } = setupPlayer(
+        const nickname = channel.nickname;
+        const color = Color3.Random();
+        const { playerNode } = setupPlayer(
           {
             id: channel.clientId,
-            nickname: "Player_" + channel.nickname,
-            color: Color3.Random(),
+            nickname,
+            color: color,
           },
           scene
         );
         playerNode.position.x = Math.random() * 4 - 2;
         playerNode.position.z = Math.random() * 4 - 2;
-
-        gameServer.broadcast("add-entity", writeEntity(playerEntity), {
-          reliable: true,
-        });
+        addNodeEntity(playerNode, [
+          player(channel.clientId, nickname, color),
+          "netsync",
+        ]);
 
         channel.onDisconnect(() => {
           console.debug(`Client ${channel.clientId} disconnected`);
-          gameServer.broadcast(
-            "remove-entity",
-            { id: playerEntity.id },
-            {
-              reliable: true,
-            }
-          );
           playerNode.dispose();
         });
       };
