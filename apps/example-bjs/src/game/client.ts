@@ -1,7 +1,13 @@
 import { Scene } from "@babylonjs/core/scene";
 import { GameClient } from "@gamenet/core";
 import { removeEntity } from "@skyboxgg/bjs-ecs";
-import { readCreateEntities, readEntity, ServerEntityIdMap } from "./netsync";
+import {
+  readCreateEntities,
+  readEntity,
+  readUpdateEntities,
+  ServerEntityIdMap,
+} from "./netsync";
+import { setupPlayerInput } from "./player_input_system";
 import { setupScene } from "./scene_setup";
 
 export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
@@ -27,6 +33,9 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
       serverIdMap.delete(e.id);
     }
   });
+  gameClient.on("update-entities", async (data) => {
+    readUpdateEntities(data, serverIdMap);
+  });
 
   // initial handshake
   let serverReadyReceived = 0;
@@ -45,4 +54,6 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     console.error("Failed to handshake with server");
     throw new Error("Failed to handshake with server");
   }
+
+  setupPlayerInput(gameClient, scene);
 }

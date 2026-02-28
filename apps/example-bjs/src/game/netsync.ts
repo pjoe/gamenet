@@ -12,7 +12,7 @@ import {
 import { player } from "./player_comp";
 import { setupPlayer } from "./player_setup";
 
-export function writeEntity(e: Entity<["netsync"]>) {
+export function writeEntity(e: Entity<["netsync"]>, isUpdate = false) {
   let name = "nameless";
   const comps = Object.entries(e.comps).map(([key, comp]) => {
     let compData = undefined;
@@ -44,9 +44,9 @@ export function writeEntity(e: Entity<["netsync"]>) {
   return { id: e.id, name, comps };
 }
 
-export function writeCreateEntities() {
+export function writeCreateEntities(isUpdate = false) {
   const entities = queryXforms(["netsync"]);
-  const data = entities.map((e) => writeEntity(e));
+  const data = entities.map((e) => writeEntity(e, isUpdate));
   return data;
 }
 
@@ -133,4 +133,47 @@ export function readCreateEntities(
     comps: Array<{ k: string; v?: unknown }>;
   }>;
   entities.forEach((e) => readEntity(e, idMap, scene));
+}
+
+export function readUpdateEntities(data: unknown, idMap: ServerEntityIdMap) {
+  const entities = data as Array<{
+    id: number;
+    name: string;
+    comps: Array<{ k: string; v?: unknown }>;
+  }>;
+  entities.forEach((e) => {
+    const existingEntity = idMap.get(e.id);
+    if (existingEntity) {
+      // console.debug(
+      //   `Updating entity serverId:${e.id} (${e.name}) with comps:`,
+      //   e.comps
+      // );
+      const xformComp = e.comps.find((c) => c.k === "xform")?.v as
+        | {
+            pos: Vector3;
+            rot: Vector3 | undefined;
+            quat: Quaternion | undefined;
+          }
+        | undefined;
+      if (xformComp) {
+        const xformData = {
+          position: xformComp.pos,
+          rotation: xformComp.rot,
+          rotationQuaternion: xformComp.quat,
+        };
+        const existingXform = existingEntity.comps.xform;
+        const xformVal = (existingXform as ReturnType<typeof xform>).value;
+        if (xformVal) {
+          xformVal.position.copyFrom(xformData.position);
+          if (xformData.rotationQuaternion) {
+            xformVal.rotationQuaternion = new Quaternion().copyFrom(
+              xformData.rotationQuaternion
+            );
+          } else if (xformData.rotation) {
+            xformVal.rotation.copyFrom(xformData.rotation);
+          }
+        }
+      }
+    }
+  });
 }

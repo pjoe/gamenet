@@ -4,6 +4,7 @@ import {
 } from "@babylonjs/core/Engines/nullEngine";
 import { Color3 } from "@babylonjs/core/Maths/math";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import "@babylonjs/core/Physics/v2/physicsEngineComponent";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { Scene } from "@babylonjs/core/scene";
@@ -24,6 +25,8 @@ const DEFAULT_NULL_ENGINE_OPTIONS: NullEngineOptions = {
   lockstepMaxSteps: 4,
   timeStep: 1.0 / 64, // 64 ticks per second
 };
+
+const PLAYER_SPEED = 5; // units per second
 
 export async function setupBabylonServer() {
   console.debug("Setting up Babylon.js server...");
@@ -55,6 +58,10 @@ export async function setupBabylonServer() {
       await setupScene(scene, true);
     });
   }
+
+  // Player input state and movement
+  const playerInputs = new Map<string, { dx: number; dz: number }>();
+  const playerNodes = new Map<string, TransformNode>();
 
   let frame = 0;
   const render = () => {
@@ -88,6 +95,19 @@ export async function setupBabylonServer() {
           { id: entity.id },
           { reliable: true }
         );
+      });
+
+      // each tick, update player positions based on input and broadcast entity states
+      scene.onBeforeRenderObservable.add(() => {
+        const dt = engine.getTimeStep() / 1000; // seconds
+        for (const [clientId, input] of playerInputs) {
+          if (input.dx === 0 && input.dz === 0) continue;
+          const node = playerNodes.get(clientId);
+          if (!node) continue;
+          node.position.x += input.dx * PLAYER_SPEED * dt;
+          node.position.z += input.dz * PLAYER_SPEED * dt;
+        }
+        gameServer.broadcast("update-entities", writeCreateEntities(true));
       });
 
       gameServer.onConnection = async (channel) => {
@@ -133,8 +153,16 @@ export async function setupBabylonServer() {
           "netsync",
         ]);
 
+        // Track player node and listen for input
+        playerNodes.set(channel.clientId, playerNode);
+        channel.on("player-input", (_, data: { dx: number; dz: number }) => {
+          playerInputs.set(channel.clientId, data);
+        });
+
         channel.onDisconnect(() => {
           console.debug(`Client ${channel.clientId} disconnected`);
+          playerNodes.delete(channel.clientId);
+          playerInputs.delete(channel.clientId);
           playerNode.dispose();
         });
       };
