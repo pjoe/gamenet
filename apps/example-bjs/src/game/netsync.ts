@@ -9,6 +9,7 @@ import {
   queryXforms,
   xform,
 } from "@skyboxgg/bjs-ecs";
+import { GameClient } from "node_modules/@gamenet/core/dist/game_client";
 import { player } from "./player_comp";
 import { setupPlayer } from "./player_setup";
 
@@ -16,7 +17,7 @@ export function writeEntity(e: Entity<["netsync"]>, isUpdate = false) {
   let name = "nameless";
   const comps = Object.entries(e.comps).map(([key, comp]) => {
     let compData = undefined;
-    if (key === "player") {
+    if (key === "player" && !isUpdate) {
       compData = {
         id: (comp as ReturnType<typeof player>).value.id,
         nickname: (comp as ReturnType<typeof player>).value.nickname,
@@ -53,6 +54,7 @@ export function writeCreateEntities(isUpdate = false) {
 export type ServerEntityIdMap = Map<number, Entity<["netsync"]>>;
 
 export function readEntity(
+  gameClient: GameClient,
   e: { id: number; name: string; comps: Array<{ k: string; v?: unknown }> },
   idMap: ServerEntityIdMap,
   scene: Scene
@@ -85,6 +87,10 @@ export function readEntity(
         `Player with id ${playerComp.id} already exists, skipping creation`
       );
       return;
+    }
+
+    if (playerComp.id === gameClient.clientId) {
+      compsToAdd.push("me");
     }
 
     const color = new Color3().copyFrom(playerComp.color);
@@ -123,6 +129,7 @@ export function readEntity(
 }
 
 export function readCreateEntities(
+  gameClient: GameClient,
   data: unknown,
   idMap: ServerEntityIdMap,
   scene: Scene
@@ -132,7 +139,7 @@ export function readCreateEntities(
     name: string;
     comps: Array<{ k: string; v?: unknown }>;
   }>;
-  entities.forEach((e) => readEntity(e, idMap, scene));
+  entities.forEach((e) => readEntity(gameClient, e, idMap, scene));
 }
 
 export function readUpdateEntities(data: unknown, idMap: ServerEntityIdMap) {

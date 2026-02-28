@@ -20,10 +20,10 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     console.debug("Received msg:", data);
   });
   gameClient.on("create-entities", async (data) => {
-    readCreateEntities(data, serverIdMap, scene);
+    readCreateEntities(gameClient, data, serverIdMap, scene);
   });
   gameClient.on("add-entity", async (data) => {
-    readEntity(data, serverIdMap, scene);
+    readEntity(gameClient, data, serverIdMap, scene);
   });
   gameClient.on("remove-entity", async (data) => {
     const e = data as { id: number };

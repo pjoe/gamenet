@@ -1,4 +1,3 @@
-import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { Camera } from "@babylonjs/core/Cameras/camera";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
@@ -7,6 +6,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
 import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import type { Scene } from "@babylonjs/core/scene";
+import { setupPlayerCamera } from "./player_camera_setup";
 
 // Side-effect imports
 import "@babylonjs/core/Materials/standardMaterial";
@@ -18,18 +18,7 @@ export async function setupScene(scene: Scene, isServer = false) {
     // Minimal camera so Babylon doesn't complain about a missing active camera
     new Camera("camera", Vector3.Zero(), scene);
   } else {
-    // Camera — orbitable
-    const camera = new ArcRotateCamera(
-      "camera",
-      -Math.PI / 2,
-      Math.PI / 3,
-      10,
-      Vector3.Zero(),
-      scene
-    );
-    camera.lowerRadiusLimit = 3;
-    camera.upperRadiusLimit = 30;
-    camera.attachControl();
+    setupPlayerCamera(scene);
 
     // Light
     const light = new HemisphericLight("light", new Vector3(0, 1, 0), scene);
