@@ -8,26 +8,8 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   console.debug("Setting up Babylon.js client scene...");
   await setupScene(scene, false);
 
-  // initial handshake
-  let serverReadyReceived = 0;
-  gameClient.on("ready", (ack) => {
-    serverReadyReceived = ack + 1;
-  });
-  for (let i = 0; i < 10; ++i) {
-    gameClient.emit("ready", serverReadyReceived, { reliable: true });
-    if (serverReadyReceived > 1) {
-      console.debug("Handshake with server complete");
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  if (serverReadyReceived < 1) {
-    console.error("Failed to handshake with server");
-    throw new Error("Failed to handshake with server");
-  }
-
+  // set up message handlers
   const serverIdMap: ServerEntityIdMap = new Map();
-
   gameClient.on("msg", async (data) => {
     console.debug("Received msg:", data);
   });
@@ -45,4 +27,22 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
       serverIdMap.delete(e.id);
     }
   });
+
+  // initial handshake
+  let serverReadyReceived = 0;
+  gameClient.on("ready", (ack) => {
+    serverReadyReceived = ack + 1;
+  });
+  for (let i = 0; i < 10; ++i) {
+    gameClient.emit("ready", serverReadyReceived, { reliable: true });
+    if (serverReadyReceived > 1) {
+      console.debug("Handshake with server complete");
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  if (serverReadyReceived < 1) {
+    console.error("Failed to handshake with server");
+    throw new Error("Failed to handshake with server");
+  }
 }
