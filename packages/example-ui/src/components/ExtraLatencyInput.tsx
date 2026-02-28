@@ -1,42 +1,44 @@
 import { useCallback } from "react";
-import FormField from "./FormField";
 
 function ExtraLatencyInput({
   value,
   onChange,
   disabled,
-  accentColor = "green",
 }: {
   value: number;
   onChange: (value: number) => void;
   disabled?: boolean;
-  accentColor?: "blue" | "green";
 }) {
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const clamped = Math.min(
-        2000,
-        Math.max(0, parseInt(e.target.value) || 0)
-      );
-      onChange(clamped);
+      onChange(parseInt(e.target.value) || 0);
     },
     [onChange]
   );
 
   return (
-    <FormField
-      id="extraLatency"
-      label="Extra Latency (ms)"
-      type="number"
-      value={value}
-      onChange={handleChange}
-      placeholder="0"
-      min={0}
-      max={2000}
-      mono
-      disabled={disabled}
-      accentColor={accentColor}
-    />
+    <div className="mb-6">
+      <label
+        htmlFor="extraLatency"
+        className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2 transition-colors duration-200"
+      >
+        Extra Latency:{" "}
+        <span className="font-mono text-[var(--color-text-primary)]">
+          {value} ms
+        </span>
+      </label>
+      <input
+        type="range"
+        id="extraLatency"
+        value={value}
+        onChange={handleChange}
+        min={0}
+        max={250}
+        step={10}
+        disabled={disabled}
+        className="w-full accent-[var(--color-accent-green)]"
+      />
+    </div>
   );
 }
 
