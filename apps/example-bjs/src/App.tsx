@@ -17,7 +17,7 @@ function App() {
   const { session } = useGame();
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
       <div className="min-h-screen bg-[var(--color-bg-secondary)] transition-colors duration-200">
         <nav className="bg-[var(--color-bg-primary)] shadow-sm transition-colors duration-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

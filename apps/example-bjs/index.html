@@ -2,9 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GameNet Example BJS</title>
+    <!-- SPA redirect: restore URL after 404.html redirect on GitHub Pages -->
+    <script>
+      (function () {
+        var r = window.location.search.match(/[?&]p=([^&]*)/);
+        if (r) {
+          var p = decodeURIComponent(r[1]).replace(/~and~/g, "&");
+          var q = window.location.search.match(/[?&]q=([^&]*)/);
+          q = q ? "?" + decodeURIComponent(q[1]).replace(/~and~/g, "&") : "";
+          window.history.replaceState(
+            null,
+            "",
+            window.location.pathname.replace(/\/$/, "") +
+              "/" +
+              p +
+              q +
+              window.location.hash
+          );
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
