@@ -2,16 +2,11 @@ import {
   NullEngine,
   type NullEngineOptions,
 } from "@babylonjs/core/Engines/nullEngine";
-import { Color3 } from "@babylonjs/core/Maths/math";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Color3, Vector3 } from "@babylonjs/core/Maths/math";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
-import "@babylonjs/core/Physics/v2/physicsEngineComponent";
-import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { Scene } from "@babylonjs/core/scene";
-import HavokPhysics from "@babylonjs/havok";
 import { GameServer } from "@gamenet/core";
 import { addNodeEntity, entityEvents } from "@skyboxgg/bjs-ecs";
-import HavokInit from "../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { writeCreateEntities, writeEntity } from "./netsync";
 import { player } from "./player_comp";
 import { setupPlayer } from "./player_setup";
@@ -28,7 +23,7 @@ const DEFAULT_NULL_ENGINE_OPTIONS: NullEngineOptions = {
   timeStep: 1.0 / 64, // 64 ticks per second
 };
 
-const PLAYER_SPEED = 5; // units per second
+const PLAYER_SPEED = 4; // units per second
 
 export async function setupBabylonServer() {
   console.debug("Setting up Babylon.js server...");
@@ -39,15 +34,6 @@ export async function setupBabylonServer() {
 
   //scene
   const scene = new Scene(engine);
-
-  // physics
-  console.debug("Loading Havok physics...");
-  const wasmBinary = await fetch(HavokInit).then((res) => res.arrayBuffer());
-  const havokInstance = await HavokPhysics({ wasmBinary });
-  const havokPlugin = new HavokPlugin(true, havokInstance);
-  scene.enablePhysics(new Vector3(0, -9.8, 0), havokPlugin);
-  scene.getPhysicsEngine()?.setTimeStep(engine.getTimeStep() / 1000);
-  console.debug("Havok physics loaded and enabled in the scene.");
 
   // setup scene
   if (scene.isReady()) {
@@ -115,13 +101,18 @@ export async function setupBabylonServer() {
 
       // each tick, update player positions based on input and broadcast entity states
       scene.onBeforeRenderObservable.add(() => {
-        const dt = engine.getTimeStep() / 1000; // seconds
+        //const dt = engine.getTimeStep() / 1000; // seconds
         for (const [clientId, input] of playerInputs) {
-          if (input.dx === 0 && input.dz === 0) continue;
+          // if (input.dx === 0 && input.dz === 0) continue;
           const node = playerNodes.get(clientId);
           if (!node) continue;
-          node.position.x += input.dx * PLAYER_SPEED * dt;
-          node.position.z += input.dz * PLAYER_SPEED * dt;
+          const pbody = node.physicsBody;
+          if (pbody) {
+            const velocity = pbody.getLinearVelocity() || new Vector3();
+            velocity.x = input.dx * PLAYER_SPEED;
+            velocity.z = input.dz * PLAYER_SPEED;
+            pbody.setLinearVelocity(velocity);
+          }
         }
         gameServer.broadcast("update-entities", writeCreateEntities(true));
       });
@@ -159,6 +150,7 @@ export async function setupBabylonServer() {
             id: channel.clientId,
             nickname,
             color: color,
+            isServer: true,
           },
           scene
         );

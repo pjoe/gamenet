@@ -110,6 +110,7 @@ export function readEntity(
         id: playerComp.id,
         nickname: playerComp.nickname,
         color,
+        isServer: false,
       },
       scene
     );

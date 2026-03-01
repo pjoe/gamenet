@@ -13,4 +13,7 @@ export default defineConfig({
     format: "es",
     plugins: () => [wasm()],
   },
+  optimizeDeps: {
+    exclude: ["@babylonjs/havok"],
+  },
 });
