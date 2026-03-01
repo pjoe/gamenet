@@ -16,6 +16,8 @@ import { writeCreateEntities, writeEntity } from "./netsync";
 import { player } from "./player_comp";
 import { setupPlayer } from "./player_setup";
 import { setupScene } from "./scene_setup";
+import { sphere } from "./sphere_comp";
+import { setupSphere } from "./sphere_setup";
 
 const DEFAULT_NULL_ENGINE_OPTIONS: NullEngineOptions = {
   renderWidth: 1,
@@ -62,6 +64,20 @@ export async function setupBabylonServer() {
   // Player input state and movement
   const playerInputs = new Map<string, { dx: number; dz: number }>();
   const playerNodes = new Map<string, TransformNode>();
+
+  // Create sphere as a netsync ECS entity
+  const diffuseColor = new Color3(0.2, 0.5, 0.9);
+  const specularColor = new Color3(0.4, 0.4, 0.4);
+  const { sphereNode } = setupSphere(
+    { diameter: 1.5, segments: 32, diffuseColor, specularColor },
+    scene,
+    true
+  );
+  sphereNode.position.y = 0.75;
+  addNodeEntity(sphereNode, [
+    sphere(1.5, 32, diffuseColor, specularColor),
+    "netsync",
+  ]);
 
   let frame = 0;
   const render = () => {
