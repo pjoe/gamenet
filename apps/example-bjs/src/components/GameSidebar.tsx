@@ -35,7 +35,7 @@ function GameSidebar({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="fixed top-20 z-50 flex items-center justify-center w-8 h-10 rounded-r-lg bg-[var(--color-bg-primary)]/80 backdrop-blur border border-l-0 border-[var(--color-border)] text-[var(--color-text-primary)] shadow-md transition-all duration-300"
-        style={{ left: open ? "16rem" : 0 }}
+        style={{ left: open ? "13rem" : 0 }}
         aria-label={open ? "Close sidebar" : "Open sidebar"}
       >
         <svg
@@ -54,7 +54,7 @@ function GameSidebar({
 
       {/* Sidebar panel */}
       <div
-        className="fixed top-16 bottom-0 z-40 w-64 bg-[var(--color-bg-primary)]/60 border-r border-[var(--color-border)] shadow-lg overflow-y-auto transition-transform duration-300 ease-in-out"
+        className="fixed top-16 bottom-0 z-40 w-52 bg-[var(--color-bg-primary)]/60 border-r border-[var(--color-border)] shadow-lg overflow-y-auto transition-transform duration-300 ease-in-out"
         style={{ transform: open ? "translateX(0)" : "translateX(-100%)" }}
       >
         <div className="p-2 space-y-1.5">
