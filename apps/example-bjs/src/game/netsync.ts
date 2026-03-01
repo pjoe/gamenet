@@ -12,8 +12,12 @@ import {
 import { GameClient } from "node_modules/@gamenet/core/dist/game_client";
 import { player } from "./player_comp";
 import { setupPlayer } from "./player_setup";
-import { sphere } from "./sphere_comp";
-import { setupSphere } from "./sphere_setup";
+import { ComponentSerde } from "./serde";
+import { sphereSerde } from "./sphere_comp";
+
+const componentSerdes: Record<string, ComponentSerde> = {
+  sphere: sphereSerde,
+};
 
 export function writeEntity(e: Entity<["netsync"]>, isUpdate = false) {
   let name = "nameless";
@@ -26,14 +30,8 @@ export function writeEntity(e: Entity<["netsync"]>, isUpdate = false) {
         color: (comp as ReturnType<typeof player>).value.color,
       };
     }
-    if (key === "sphere" && !isUpdate) {
-      const val = (comp as ReturnType<typeof sphere>).value;
-      compData = {
-        diameter: val.diameter,
-        segments: val.segments,
-        diffuseColor: val.diffuseColor,
-        specularColor: val.specularColor,
-      };
+    if (key in componentSerdes && !isUpdate) {
+      compData = componentSerdes[key].serialize(comp);
     }
     if (key === "xform") {
       const xformVal = (comp as ReturnType<typeof xform>).value;
@@ -117,34 +115,18 @@ export function readEntity(
     compsToAdd.push(player(playerComp.id, playerComp.nickname, color));
     xformNode = playerNode;
   }
-  if (comps.sphere) {
-    const sphereComp = comps.sphere as {
-      diameter: number;
-      segments: number;
-      diffuseColor: Color3;
-      specularColor: Color3;
-    };
-    const diffuseColor = new Color3().copyFrom(sphereComp.diffuseColor);
-    const specularColor = new Color3().copyFrom(sphereComp.specularColor);
-    const { sphereNode } = setupSphere(
-      {
-        diameter: sphereComp.diameter,
-        segments: sphereComp.segments,
-        diffuseColor,
-        specularColor,
-      },
-      scene
-    );
-    compsToAdd.push(
-      sphere(
-        sphereComp.diameter,
-        sphereComp.segments,
-        diffuseColor,
-        specularColor
-      )
-    );
-    xformNode = sphereNode;
-  }
+
+  Object.entries(comps).forEach(([key, val]) => {
+    if (key in componentSerdes && val) {
+      const { comp, node } = componentSerdes[key].deserialize(val, scene);
+      if (comp) {
+        compsToAdd.push(comp);
+        if (node) {
+          xformNode = node;
+        }
+      }
+    }
+  });
 
   // xform
   if (xformNode) {
