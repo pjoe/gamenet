@@ -5,6 +5,8 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
 import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
+import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
+import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
 import type { Scene } from "@babylonjs/core/scene";
 import { setupPlayerCamera } from "./player_camera_setup";
 
@@ -39,4 +41,15 @@ export async function setupScene(scene: Scene, isServer = false) {
   sphereMat.diffuseColor = new Color3(0.2, 0.5, 0.9);
   sphereMat.specularColor = new Color3(0.4, 0.4, 0.4);
   sphere.material = sphereMat;
+
+  // Physics (server-only)
+  if (isServer) {
+    new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene);
+    new PhysicsAggregate(
+      sphere,
+      PhysicsShapeType.SPHERE,
+      { mass: 1, restitution: 0.5 },
+      scene
+    );
+  }
 }
