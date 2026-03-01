@@ -7,12 +7,18 @@ const colorClasses = {
   red: "bg-red-600 hover:bg-red-700 disabled:bg-red-400",
 };
 
+const sizeClasses = {
+  sm: "py-1.5 px-3 text-sm",
+  md: "py-3 px-4",
+};
+
 function ActionButton({
   color,
   children,
   disabled,
   onClick,
   type = "button",
+  size = "md",
   to,
 }: {
   color: "blue" | "green" | "red";
@@ -20,9 +26,10 @@ function ActionButton({
   disabled?: boolean;
   onClick?: () => void;
   type?: "button" | "submit";
+  size?: "sm" | "md";
   to?: string;
 }) {
-  const className = `w-full ${colorClasses[color]} text-white font-medium py-3 px-4 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed`;
+  const className = `w-full ${colorClasses[color]} ${sizeClasses[size]} text-white font-medium rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed`;
 
   if (to) {
     return (

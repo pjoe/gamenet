@@ -17,7 +17,7 @@ function ExtraLatencyInput({
   );
 
   return (
-    <div className="mb-6">
+    <div>
       <label
         htmlFor="extraLatency"
         className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2 transition-colors duration-200"

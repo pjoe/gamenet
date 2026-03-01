@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 const paddingClasses = {
+  xs: "p-2",
   sm: "p-4",
   md: "p-6",
   lg: "p-8",
@@ -12,7 +13,7 @@ function Card({
   className = "",
 }: {
   children: ReactNode;
-  padding?: "sm" | "md" | "lg";
+  padding?: "xs" | "sm" | "md" | "lg";
   className?: string;
 }) {
   return (
