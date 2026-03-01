@@ -54,13 +54,16 @@ function GameSidebar({
 
       {/* Sidebar panel */}
       <div
-        className="fixed top-16 bottom-0 z-40 w-64 bg-[var(--color-bg-primary)]/90 backdrop-blur-md border-r border-[var(--color-border)] shadow-lg overflow-y-auto transition-transform duration-300 ease-in-out"
+        className="fixed top-16 bottom-0 z-40 w-64 bg-[var(--color-bg-primary)]/60 border-r border-[var(--color-border)] shadow-lg overflow-y-auto transition-transform duration-300 ease-in-out"
         style={{ transform: open ? "translateX(0)" : "translateX(-100%)" }}
       >
         <div className="p-2 space-y-1.5">
           {/* Header */}
-          <h2 className="text-sm font-bold text-[var(--color-text-primary)] transition-colors duration-200">
-            {isHost ? "Hosting" : "Joined"} as {nickname ?? clientId}
+          <h2 className="text-sm text-[var(--color-text-secondary)] transition-colors duration-200">
+            {isHost ? "Hosting" : "Joined"} as{" "}
+            <span className="font-bold text-base text-[var(--color-text-primary)]">
+              {nickname ?? clientId}
+            </span>
           </h2>
 
           {/* Game Code */}

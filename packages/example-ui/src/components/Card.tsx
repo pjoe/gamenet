@@ -18,7 +18,7 @@ function Card({
 }) {
   return (
     <div
-      className={`bg-[var(--color-bg-primary)] rounded-lg shadow transition-colors duration-200 ${paddingClasses[padding]} ${className}`}
+      className={`bg-[var(--color-bg-primary)]/40 rounded-lg shadow transition-colors duration-200 ${paddingClasses[padding]} ${className}`}
     >
       {children}
     </div>
