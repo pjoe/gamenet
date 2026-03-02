@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const iceServers: RTCIceServer[] = [
-  // {
-  //   urls: "stun:stun.l.google.com:19302",
-  // },
+  {
+    urls: "stun:stun.l.google.com:19302",
+  },
 ];
 
 export interface Signaling {
