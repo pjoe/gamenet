@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+//TODO: maybe use https://github.com/pradt2/always-online-stun
 const iceServers: RTCIceServer[] = [
   {
     urls: "stun:stun.l.google.com:19302",

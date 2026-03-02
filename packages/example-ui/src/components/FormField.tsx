@@ -17,6 +17,8 @@ function FormField({
   max,
   mono,
   accentColor = "blue",
+  inputMode,
+  pattern,
 }: {
   id: string;
   label: string;
@@ -31,6 +33,8 @@ function FormField({
   max?: number;
   mono?: boolean;
   accentColor?: "blue" | "green";
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  pattern?: string;
 }) {
   return (
     <div className="mb-6">
@@ -51,6 +55,8 @@ function FormField({
         maxLength={maxLength}
         min={min}
         max={max}
+        inputMode={inputMode}
+        pattern={pattern}
         className={`w-full px-4 py-3 border border-[var(--color-border)] rounded-lg focus:ring-2 ${accentClasses[accentColor]} focus:border-transparent bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] transition-colors duration-200${mono ? " font-mono text-lg" : ""}`}
       />
     </div>

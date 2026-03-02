@@ -66,6 +66,8 @@ function Join() {
             value={serverId}
             onChange={(e) => setServerId(e.target.value.replace(/[^0-9]/g, ""))}
             placeholder="Enter 7-digit code"
+            inputMode="numeric"
+            pattern="[0-9]*"
             maxLength={7}
             disabled={joinState !== "idle"}
             required
