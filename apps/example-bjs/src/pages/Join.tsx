@@ -15,7 +15,11 @@ type JoinState = "idle" | "joining";
 function Join() {
   const [searchParams] = useSearchParams();
   const [serverId, setServerId] = useState(
-    () => searchParams.get("code")?.replace(/[^0-9]/g, "")?.slice(0, 7) ?? ""
+    () =>
+      searchParams
+        .get("code")
+        ?.replace(/[^0-9]/g, "")
+        ?.slice(0, 7) ?? ""
   );
   const [nickname, setNickname] = useState("");
   const [extraLatency, setExtraLatency] = useState(0);
