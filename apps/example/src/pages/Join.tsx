@@ -8,12 +8,15 @@ import {
   PageLayout,
 } from "@gamenet/example-ui";
 import { useCallback, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 
 type JoinState = "idle" | "joining";
 
 function Join() {
-  const [serverId, setServerId] = useState("");
+  const [searchParams] = useSearchParams();
+  const [serverId, setServerId] = useState(
+    () => searchParams.get("code")?.replace(/[^0-9]/g, "")?.slice(0, 7) ?? ""
+  );
   const [nickname, setNickname] = useState("");
   const [extraLatency, setExtraLatency] = useState(0);
   const [joinState, setJoinState] = useState<JoinState>("idle");

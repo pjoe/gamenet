@@ -92,9 +92,54 @@ function Game() {
               Game Code
             </h2>
             <div className="bg-[var(--color-bg-tertiary)] rounded-lg p-4 mb-3 transition-colors duration-200">
-              <p className="text-3xl font-mono font-bold text-[var(--color-accent-blue)] transition-colors duration-200">
-                {serverId}
-              </p>
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-3xl font-mono font-bold text-[var(--color-accent-blue)] transition-colors duration-200">
+                  {serverId}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(serverId)}
+                  className="p-1 rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors duration-200"
+                  aria-label="Copy game code"
+                  title="Copy game code"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `${window.location.origin}/join?code=${serverId}`;
+                    navigator.clipboard.writeText(url);
+                  }}
+                  className="p-1 rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors duration-200"
+                  aria-label="Copy join link"
+                  title="Copy join link"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <p className="text-[var(--color-text-secondary)] text-sm mb-2 transition-colors duration-200">
               {isHost
