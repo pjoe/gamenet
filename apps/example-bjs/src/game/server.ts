@@ -54,14 +54,14 @@ export async function setupBabylonServer() {
   // Create sphere as a netsync ECS entity
   const diffuseColor = new Color3(0.2, 0.5, 0.9);
   const specularColor = new Color3(0.4, 0.4, 0.4);
-  const { sphereNode } = setupSphere(
+  const { node: sphereNode } = setupSphere(
     { diameter: 1.5, segments: 32, diffuseColor, specularColor },
     scene,
     true
   );
   sphereNode.position.y = 0.75;
   addNodeEntity(sphereNode, [
-    sphere(1.5, 32, diffuseColor, specularColor),
+    sphere({ diameter: 1.5, segments: 32, diffuseColor, specularColor }),
     "netsync",
   ]);
 
@@ -145,7 +145,7 @@ export async function setupBabylonServer() {
         // create player
         const nickname = channel.nickname;
         const color = Color3.Random();
-        const { playerNode } = setupPlayer(
+        const { node: playerNode } = setupPlayer(
           {
             id: channel.clientId,
             nickname,
@@ -157,7 +157,7 @@ export async function setupBabylonServer() {
         playerNode.position.x = Math.random() * 4 - 2;
         playerNode.position.z = Math.random() * 4 - 2;
         addNodeEntity(playerNode, [
-          player(channel.clientId, nickname, color),
+          player({ id: channel.clientId, nickname, color, isServer: true }),
           "netsync",
         ]);
 

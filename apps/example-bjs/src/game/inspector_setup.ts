@@ -38,7 +38,13 @@ export async function showInspector(show: boolean, scene: Scene) {
 export function setupInspector(scene: Scene) {
   window.addEventListener("keydown", (event) => {
     // toggle inspector
-    if (event.code === "KeyI" && event.shiftKey) {
+    if (
+      event.code === "KeyI" &&
+      event.shiftKey &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey
+    ) {
       if (scene.debugLayer?.isVisible()) {
         showInspector(false, scene);
       } else {

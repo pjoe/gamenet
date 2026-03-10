@@ -13,11 +13,16 @@ import { PhysicsShapeCylinder } from "@babylonjs/core/Physics/v2/physicsShape";
 import type { Scene } from "@babylonjs/core/scene";
 
 export function setupPlayer(
-  options: { id: string; nickname: string; color: Color3; isServer: boolean },
+  options: {
+    id: string;
+    nickname: string;
+    color: Color3;
+    isServer: boolean;
+  },
   scene: Scene
 ) {
-  const playerNode = new TransformNode("player_" + options.id, scene);
-  playerNode.position = new Vector3(0, 0, 0);
+  const node = new TransformNode("player_" + options.id, scene);
+  node.position = new Vector3(0, 0, 0);
 
   const height = 1.8;
   const mesh = CreateCylinder(
@@ -26,7 +31,7 @@ export function setupPlayer(
     scene
   );
   mesh.position.y = height / 2;
-  mesh.parent = playerNode;
+  mesh.parent = node;
 
   const mat = new StandardMaterial("playerMat", scene);
   mat.diffuseColor = options.color;
@@ -41,12 +46,7 @@ export function setupPlayer(
       radius,
       scene
     );
-    const body = new PhysicsBody(
-      playerNode,
-      PhysicsMotionType.DYNAMIC,
-      false,
-      scene
-    );
+    const body = new PhysicsBody(node, PhysicsMotionType.DYNAMIC, false, scene);
     shape.material = { restitution: 0.1 };
     body.shape = shape;
     body.setMassProperties({ mass: 1 });
@@ -54,7 +54,7 @@ export function setupPlayer(
     body.disablePreStep = false;
 
     const anchor = scene.getTransformNodeByName("PhysicsAnchor");
-    if (anchor && anchor.physicsBody && playerNode.physicsBody) {
+    if (anchor && anchor.physicsBody && node.physicsBody) {
       const constraint = new Physics6DoFConstraint(
         {
           collision: false,
@@ -82,11 +82,11 @@ export function setupPlayer(
     }
 
     // Clean up physics resources when player node is disposed
-    playerNode.onDisposeObservable.add(() => {
+    node.onDisposeObservable.add(() => {
       body.dispose();
       shape.dispose();
     });
   }
 
-  return { playerNode };
+  return { node };
 }

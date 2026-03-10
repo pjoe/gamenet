@@ -37,5 +37,5 @@ export function setupSphere(
     agg.body.disablePreStep = false;
   }
 
-  return { sphereNode };
+  return { node: sphereNode };
 }
