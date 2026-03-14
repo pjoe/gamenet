@@ -1,6 +1,6 @@
 # GameNet Architecture
 
-This document describes the architecture of the `@gamenet/core` library (`packages/gamenet`) and its example app (`apps/example`).
+This document describes the architecture of the `@gamenet/core` library (`packages/gamenet`) and its example apps (`apps/example`, `apps/example-bjs`).
 
 ## High-level overview
 
@@ -12,6 +12,7 @@ GameNet provides browser-based peer networking for multiplayer games:
   - `reliable` (ordered, default reliability)
   - `unreliable` (unordered, `maxRetransmits: 0`)
 - **Host/client APIs** exposed by `hostGame()` and `joinGame()`.
+- **Web Worker hosting** — the primary hosting model runs the game server in a Web Worker, keeping game logic off the main thread while the main thread handles WebRTC negotiation and message routing.
 
 Signal server selection is the consuming app's responsibility — the library exports `selectSignalServer()` and signal server factories.
 
@@ -26,6 +27,13 @@ Signal server selection is the consuming app's responsibility — the library ex
   - Exports channel utilities (`createHostChannelId`, `createClientChannelId`).
   - Exports telemetry types (`ClientsPingListPayload`, `ClientsPingListEntry`).
   - Exports serialization (`PayloadSerde`, `createJsonPayloadSerde`, `createMsgpackPayloadSerde`).
+
+### Worker setup API
+
+- `routing/host_server_worker_setup.ts` (`@gamenet/core/worker-setup`)
+  - Exports `setupHostServerWorker(workerScope)` — initializes `hostGame()` inside a Web Worker.
+  - Exports `HostServerWorkerScope` and `WorkerPostMessage` types for typing worker entry points.
+  - Waits for a `__init` control message from the main thread containing the `serverId`, then creates a `WorkerServerAdapterManager` and starts the game server.
 
 ### React bindings
 
@@ -152,14 +160,90 @@ sequenceDiagram
 
 ### Worker-hosted server (`Host.tsx` + worker entry)
 
-The primary hosting model runs `hostGame()` inside a Web Worker:
+The primary hosting model runs `hostGame()` inside a Web Worker, keeping game logic off the main thread. Both `apps/example` and `apps/example-bjs` use this topology.
 
-- Main thread (`apps/example/src/pages/Host.tsx`) creates a `Router`, spawns a worker, and registers a `WorkerAdapter` to bridge `postMessage` to the worker.
-- The app provides its own worker entry point (`apps/example/src/workers/host_server_worker.ts`) that imports `setupHostServerWorker` from `@gamenet/core/worker-setup`.
-- Worker runs `hostGame()` with `createWorkerServerAdapterManager`, which receives control messages (`__client_connected`, `__client_disconnected`) and game messages via `postMessage`.
-- The host browser tab joins its own game via `joinGame()` with `createLocalClientAdapterSession` — a purely in-process adapter that routes through the main-thread router without WebRTC.
-- External clients connect via WebRTC to a `ServerWebRTCAdapterManager` on the main thread; per-client "bridge adapters" forward messages between the WebRTC session and the router/worker.
-- The worker broadcasts `clients_ping_list` to all connected sessions (both local and external).
+#### Three-component topology
+
+```mermaid
+graph LR
+    subgraph "Main Thread"
+        HC["Host Client<br/>(joinGame)"]
+        R[Router]
+        WA[WorkerAdapter]
+        BA["Bridge Adapters<br/>(per WebRTC client)"]
+
+        HC <--> R
+        R <--> WA
+        R <--> BA
+    end
+
+    subgraph "Worker Thread"
+        GS["hostGame()<br/>(GameServer)"]
+    end
+
+    WA <-->|postMessage| GS
+    BA <-->|WebRTC<br/>PeerConns| EC["External Clients"]
+```
+
+#### Startup sequence
+
+1. Main thread creates `serverId` via `createHostChannelId()` and a `Router` instance.
+2. Web Worker is spawned (`new Worker("host_server_worker.ts", { type: "module" })`).
+3. A `WorkerAdapter` is created via `createWorkerAdapter(id, worker)` and registered with the router, targeting a well-known `WORKER_SERVER_ID`.
+4. A `__init` control message is sent to the worker containing the `serverId`.
+5. The worker's `setupHostServerWorker()` receives `__init`, creates a `WorkerServerAdapterManager`, and calls `hostGame()` — returning a `GameServer` the app can hook into.
+6. The host tab joins its own game via `joinGame()` with a local adapter session (no WebRTC needed).
+7. A `ServerWebRTCAdapterManager` is created on the main thread to accept external WebRTC clients.
+
+#### Worker adapter communication
+
+The `WorkerAdapter` bridges the main-thread `Router` and the worker via `postMessage`:
+
+- **Main → Worker**: `router.sendMessage()` → `workerAdapter.receiveMessage()` → `worker.postMessage(message, [message.data])` (zero-copy `ArrayBuffer` transfer).
+- **Worker → Main**: worker's `postMessage(message, [message.data])` → `worker.onmessage` → `adapter.emitMessage()` → router routes onward.
+
+All `ArrayBuffer` payloads are transferred with zero-copy semantics using the transferable list.
+
+#### Control message protocol
+
+The worker adapter manager uses reserved message types for session lifecycle:
+
+- `__init` — sent once at startup, carries `serverId` so the worker can initialize `hostGame()`.
+- `__client_connected` — sent when a new client (local or external) connects; carries client id and nickname.
+- `__client_disconnected` — sent when a client disconnects; triggers session cleanup in the worker.
+
+Regular game messages flow alongside control messages using the standard `Message` struct.
+
+#### Local host client
+
+The host browser tab joins its own game via `joinGame()` with a custom `createLocalClientAdapterSession` — a purely in-process adapter that routes through the main-thread `Router` without any WebRTC connection. Messages pass directly from the host client adapter through the router to the worker adapter and back.
+
+#### External WebRTC client bridging
+
+External clients connect via WebRTC to a `ServerWebRTCAdapterManager` on the main thread. For each connected external client, a "bridge adapter" is created and registered with the router. The bridge adapter:
+
+- **Inbound**: receives WebRTC data channel messages from the client, wraps them as `Message` structs, and sends them through the router to the worker.
+- **Outbound**: receives `Message` structs from the router (originating in the worker) and forwards them over the client's WebRTC data channels.
+
+The worker broadcasts `clients_ping_list` to all connected sessions (both local and external).
+
+#### Creating a worker entry point
+
+Apps provide their own worker entry point that imports `setupHostServerWorker` from `@gamenet/core/worker-setup`:
+
+```typescript
+import {
+  setupHostServerWorker,
+  type HostServerWorkerScope,
+} from "@gamenet/core/worker-setup";
+
+const workerScope = self as unknown as HostServerWorkerScope;
+const server = await setupHostServerWorker(workerScope);
+
+server.onConnection = (channel) => {
+  channel.emit("msg", "Welcome to the server!");
+};
+```
 
 See `docs/routing.md` for detailed architecture diagrams and message flows.
 
@@ -176,14 +260,14 @@ See `docs/routing.md` for detailed architecture diagrams and message flows.
 
 ## Data and event model
 
-Game payloads are sent as JSON envelopes over data channels:
+Game payloads are sent over data channels:
 
-- **Standard messages**: `{ t: string, data: unknown }`
+- **Standard messages**: `{ t: string, data: unknown }` (JSON envelopes)
   - Parsed and emitted through `mitt` under event name `t`
-- **Routing messages**: `{ t: string, data: { from: string, to: string, payload: string } }`
-  - Detected by structure and routed through `WebRTCAdapter` to `Router`
-  - Payload is base64-encoded ArrayBuffer
-  - Compatible with existing message flow (both types coexist)
+- **Routing messages**: binary msgpack-encoded frames sent via `sendRaw`
+  - Contain `from`, `to`, `type`, `reliable`, and `data` (as `Uint8Array`)
+  - Routed through `WebRTCAdapter` to `Router`
+  - Compatible with existing message flow (both types coexist on the same data channels)
 
 Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameClient`.
 
@@ -193,6 +277,7 @@ Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameC
 2. **Message encoding**: replace JSON envelopes with binary codecs (see `msgpack.ts` prototype).
 3. **ICE config**: extend `iceServers` in `peer_conn.ts` for NAT traversal.
 4. **Custom adapter sessions**: inject `createAdapterSession` into `joinGame()` or `createAdapterManager` into `hostGame()` for non-WebRTC transports.
+5. **Worker-hosted server**: use `setupHostServerWorker` from `@gamenet/core/worker-setup` to run game logic in a Web Worker, with the main thread handling WebRTC negotiation and routing.
 
 ## Notable implementation characteristics
 
@@ -241,5 +326,13 @@ Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameC
 - `pages/Join.tsx`
 - `pages/Game.tsx`
 - `workers/host_server_worker.ts` — worker entry point (uses `@gamenet/core/worker-setup`)
-- `contexts/ThemeContext.tsx`
-- `components/ThemeToggle.tsx`
+
+### Babylon.js example app (`apps/example-bjs/src/`)
+
+- `main.tsx` — app entry, signal server initialization
+- `App.tsx` — router shell
+- `pages/Host.tsx` — worker-hosted server orchestrator (same pattern as `apps/example`)
+- `pages/Join.tsx`, `pages/Game.tsx`, `pages/Home.tsx`
+- `workers/host_server_worker.ts` — worker entry point with Babylon.js server setup
+- `game/` — game logic (scene, player, netsync, serde)
+- `components/` — Babylon.js scene and sidebar UI
