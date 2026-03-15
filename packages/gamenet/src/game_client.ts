@@ -20,6 +20,8 @@ export interface GameClient {
   extraLatency: number;
   router: Router;
   adapter?: Adapter;
+  /** timeDiff is serverTime - clientTime in milliseconds */
+  timeDiff: number;
   on: Emitter<Events>["on"];
   emit: (ev: string, e: any, options?: EmitOptions) => void;
   emitRaw: (e: ArrayBuffer, options?: EmitOptions) => void;
@@ -76,6 +78,7 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
     clientId,
     extraLatency,
     router,
+    timeDiff: 0,
     on(
       type: string,
       handler: ((type: string, data: any) => void) | ((data: any) => void)
@@ -128,6 +131,8 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
     gameClient.adapter = adapter;
     gameClient.router.registerAdapter(adapter);
     emitter.on("ping", (data: { time: number }) => {
+      const timeDiff = data.time - Date.now();
+      gameClient.timeDiff = 0.6 * gameClient.timeDiff + 0.4 * timeDiff;
       gameClient.emit("pong", { ...data, clientTime: Date.now() });
     });
     onConnectedHandler?.();
