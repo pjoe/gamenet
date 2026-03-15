@@ -33,9 +33,12 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
       serverIdMap.delete(e.id);
     }
   });
-  gameClient.on("update-entities", async (data) => {
-    readUpdateEntities(data, serverIdMap);
-  });
+  gameClient.on(
+    "update-entities",
+    async (data: { time: number; entities: unknown[] }) => {
+      readUpdateEntities(data.entities, serverIdMap);
+    }
+  );
 
   // initial handshake
   let serverReadyReceived = 0;

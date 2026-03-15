@@ -128,7 +128,7 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
     gameClient.adapter = adapter;
     gameClient.router.registerAdapter(adapter);
     emitter.on("ping", (data: { time: number }) => {
-      gameClient.emit("pong", data);
+      gameClient.emit("pong", { ...data, clientTime: Date.now() });
     });
     onConnectedHandler?.();
   };

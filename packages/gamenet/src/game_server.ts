@@ -163,7 +163,7 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
       channel.emit("ping", { time: now });
     }
 
-    channel.on("pong", (_, data: { time: number }) => {
+    channel.on("pong", (_, data: { time: number; clientTime: number }) => {
       lastPongAt = Date.now();
       const now = Date.now();
       const latency = now - data.time;

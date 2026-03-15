@@ -114,7 +114,10 @@ export async function setupBabylonServer() {
             pbody.setLinearVelocity(velocity);
           }
         }
-        gameServer.broadcast("update-entities", writeCreateEntities(true));
+        gameServer.broadcast("update-entities", {
+          time: Date.now(),
+          entities: writeCreateEntities(true),
+        });
       });
 
       gameServer.onConnection = async (channel) => {
