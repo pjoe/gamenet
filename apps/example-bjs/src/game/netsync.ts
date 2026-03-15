@@ -28,15 +28,12 @@ export function writeEntity(e: Entity<["netsync"]>, isUpdate = false) {
     if (key === "xform") {
       const xformVal = (comp as ReturnType<typeof xform>).value;
       name = xformVal.name;
-      compData = xformVal.rotationQuaternion
-        ? {
-            pos: xformVal.position,
-            quat: xformVal.rotationQuaternion,
-          }
-        : {
-            pos: xformVal.position,
-            rot: xformVal.rotation,
-          };
+      compData = {
+        pos: xformVal.position,
+        quat:
+          xformVal.rotationQuaternion ??
+          Quaternion.FromEulerVector(xformVal.rotation),
+      };
     }
     if (compData) {
       return { k: key, v: compData };
