@@ -27,15 +27,13 @@ export function setupSphere(
   mat.specularColor = options.specularColor;
   sphereNode.material = mat;
 
-  if (isServer || true) {
-    const agg = new PhysicsAggregate(
-      sphereNode,
-      PhysicsShapeType.SPHERE,
-      { mass: 20, restitution: 0.5 },
-      scene
-    );
-    agg.body.disablePreStep = false;
-  }
+  const agg = new PhysicsAggregate(
+    sphereNode,
+    PhysicsShapeType.SPHERE,
+    { mass: 20, restitution: 0.5 },
+    scene
+  );
+  agg.body.disablePreStep = false;
 
   return { node: sphereNode };
 }

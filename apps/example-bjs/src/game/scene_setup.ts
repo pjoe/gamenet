@@ -62,10 +62,7 @@ export async function setupScene(scene: Scene, isServer = false) {
   groundMat.specularColor = new Color3(0.1, 0.1, 0.1);
   ground.material = groundMat;
 
-  // Physics (server-only)
-  if (isServer || true) {
-    new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene);
-  }
+  new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene);
 
   if (!isServer) {
     setupInspector(scene);

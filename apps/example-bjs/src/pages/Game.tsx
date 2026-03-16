@@ -3,6 +3,7 @@ import type {
   ClientsPingListPayload,
 } from "@gamenet/core";
 import { useGame } from "@gamenet/core/react";
+import { DebugPanel, useDebugStats } from "@gamenet/example-ui";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import BabylonScene from "../components/BabylonScene";
@@ -18,12 +19,17 @@ function Game() {
   const [extraLatency, setExtraLatency] = useState(
     () => session?.gameClient.extraLatency ?? 0
   );
+  const { stats, recordMessage, reset: resetStats } = useDebugStats();
 
   useEffect(() => {
     if (!session) return;
     let active = true;
 
     const { gameClient } = session;
+
+    gameClient.onMessageStats((e) => {
+      if (active) recordMessage(e.type, e.bytes);
+    });
 
     gameClient.onDisconnected(() => {
       if (!active) return;
@@ -39,7 +45,7 @@ function Game() {
     return () => {
       active = false;
     };
-  }, [session, endSession, navigate]);
+  }, [session, endSession, navigate, recordMessage]);
 
   const handleExtraLatencyChange = useCallback(
     (value: number) => {
@@ -78,6 +84,7 @@ function Game() {
         onExtraLatencyChange={handleExtraLatencyChange}
         onLeaveGame={handleLeaveGame}
       />
+      <DebugPanel stats={stats} onReset={resetStats} />
     </div>
   );
 }

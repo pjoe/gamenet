@@ -38,55 +38,53 @@ export function setupPlayer(
   mat.specularColor = new Color3(0.3, 0.3, 0.3);
   mesh.material = mat;
 
-  if (options.isServer || true) {
-    const radius = 0.3;
-    const shape = new PhysicsShapeCylinder(
-      new Vector3(0, 0, 0),
-      new Vector3(0, height, 0),
-      radius,
+  const radius = 0.3;
+  const shape = new PhysicsShapeCylinder(
+    new Vector3(0, 0, 0),
+    new Vector3(0, height, 0),
+    radius,
+    scene
+  );
+  const body = new PhysicsBody(node, PhysicsMotionType.DYNAMIC, false, scene);
+  shape.material = { restitution: 0.1 };
+  body.shape = shape;
+  body.setMassProperties({ mass: 1 });
+  // Always update the physics body from the transform node.
+  body.disablePreStep = false;
+
+  const anchor = scene.getTransformNodeByName("PhysicsAnchor");
+  if (anchor && anchor.physicsBody && node.physicsBody) {
+    const constraint = new Physics6DoFConstraint(
+      {
+        collision: false,
+      },
+      [
+        {
+          axis: PhysicsConstraintAxis.ANGULAR_X,
+          maxLimit: 0,
+          minLimit: 0,
+        },
+        {
+          axis: PhysicsConstraintAxis.ANGULAR_Y,
+          maxLimit: 0,
+          minLimit: 0,
+        },
+        {
+          axis: PhysicsConstraintAxis.ANGULAR_Z,
+          maxLimit: 0,
+          minLimit: 0,
+        },
+      ],
       scene
     );
-    const body = new PhysicsBody(node, PhysicsMotionType.DYNAMIC, false, scene);
-    shape.material = { restitution: 0.1 };
-    body.shape = shape;
-    body.setMassProperties({ mass: 1 });
-    // Always update the physics body from the transform node.
-    body.disablePreStep = false;
-
-    const anchor = scene.getTransformNodeByName("PhysicsAnchor");
-    if (anchor && anchor.physicsBody && node.physicsBody) {
-      const constraint = new Physics6DoFConstraint(
-        {
-          collision: false,
-        },
-        [
-          {
-            axis: PhysicsConstraintAxis.ANGULAR_X,
-            maxLimit: 0,
-            minLimit: 0,
-          },
-          {
-            axis: PhysicsConstraintAxis.ANGULAR_Y,
-            maxLimit: 0,
-            minLimit: 0,
-          },
-          {
-            axis: PhysicsConstraintAxis.ANGULAR_Z,
-            maxLimit: 0,
-            minLimit: 0,
-          },
-        ],
-        scene
-      );
-      body.addConstraint(anchor.physicsBody, constraint);
-    }
-
-    // Clean up physics resources when player node is disposed
-    node.onDisposeObservable.add(() => {
-      body.dispose();
-      shape.dispose();
-    });
+    body.addConstraint(anchor.physicsBody, constraint);
   }
+
+  // Clean up physics resources when player node is disposed
+  node.onDisposeObservable.add(() => {
+    body.dispose();
+    shape.dispose();
+  });
 
   return { node };
 }

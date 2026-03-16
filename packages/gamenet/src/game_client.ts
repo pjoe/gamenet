@@ -28,7 +28,13 @@ export interface GameClient {
   setExtraLatency: (latency: number) => void;
   onConnected: (handler: () => void) => void;
   onDisconnected: (handler: () => void) => void;
+  onMessageStats: (handler: (stats: MessageStatsEvent) => void) => void;
   dispose: () => void;
+}
+
+export interface MessageStatsEvent {
+  type: string;
+  bytes: number;
 }
 
 export interface JoinGameArgs {
@@ -65,6 +71,9 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
   const wildcardHandlers = new Set<(type: string, data: any) => void>();
   let onConnectedHandler: () => void;
   let onDisconnectedHandler: () => void;
+  let onMessageStatsHandler:
+    | ((stats: { type: string; bytes: number }) => void)
+    | undefined;
   const dispatchIncomingMessage = (eventType: string, eventData: any) => {
     emitter.emit(eventType, eventData);
     if (eventType !== "ping") {
@@ -122,6 +131,9 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
     onDisconnected: (handler) => {
       onDisconnectedHandler = handler;
     },
+    onMessageStats: (handler) => {
+      onMessageStatsHandler = handler;
+    },
     dispose() {
       session.dispose();
     },
@@ -139,6 +151,10 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
   };
 
   session.onMessage = (json: MessageEnvelope) => {
+    onMessageStatsHandler?.({
+      type: json.t,
+      bytes: json.data.byteLength,
+    });
     const eventData = payloadSerde.decode(json.data);
 
     if (gameClient.extraLatency > 0) {

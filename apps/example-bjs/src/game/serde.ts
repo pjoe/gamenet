@@ -11,6 +11,7 @@ export interface ComponentSerde {
 }
 
 export const genericSerde = <T extends Comp>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   compType: (options: any) => T,
   keys: readonly string[],
   setupNode:

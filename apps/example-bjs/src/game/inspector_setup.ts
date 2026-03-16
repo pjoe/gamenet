@@ -19,6 +19,7 @@ export async function showInspector(show: boolean, scene: Scene) {
     document.body.append(modal);
     // await import('@babylonjs/core/Debug/debugLayer');
     const inspectorModule = await import("@babylonjs/inspector");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (scene.debugLayer as any).BJSINSPECTOR = inspectorModule;
     inspectorLoading = false;
     inspectorImported = true;

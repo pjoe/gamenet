@@ -7,8 +7,10 @@ import {
   ActionButton,
   Card,
   ClientList,
+  DebugPanel,
   ExtraLatencyInput,
   PageLayout,
+  useDebugStats,
 } from "@gamenet/example-ui";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -30,12 +32,17 @@ function Game() {
   const [extraLatency, setExtraLatency] = useState(
     () => session?.gameClient.extraLatency ?? 0
   );
+  const { stats, recordMessage, reset: resetStats } = useDebugStats();
 
   useEffect(() => {
     if (!session) return;
     let active = true;
 
     const { gameClient } = session;
+
+    gameClient.onMessageStats((e) => {
+      if (active) recordMessage(e.type, e.bytes);
+    });
 
     gameClient.onDisconnected(() => {
       if (!active) return;
@@ -59,7 +66,7 @@ function Game() {
     return () => {
       active = false;
     };
-  }, [session, endSession, navigate]);
+  }, [session, endSession, navigate, recordMessage]);
 
   const handleExtraLatencyChange = useCallback(
     (value: number) => {
@@ -207,6 +214,8 @@ function Game() {
         <ActionButton color="red" onClick={handleLeaveGame}>
           Leave Game
         </ActionButton>
+
+        <DebugPanel stats={stats} onReset={resetStats} />
       </div>
     </PageLayout>
   );

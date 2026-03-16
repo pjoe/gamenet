@@ -94,6 +94,7 @@ describe("joinGame", () => {
     const pongEnvelope = sendMessage.mock.calls.at(-1)?.[0] as MessageEnvelope;
     expect(defaultPayloadSerde.decode(pongEnvelope.data)).toEqual({
       time: 123,
+      clientTime: expect.any(Number),
     });
 
     session.onDisconnected?.();
