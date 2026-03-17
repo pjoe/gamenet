@@ -56,8 +56,7 @@ export async function setupBabylonServer() {
   const specularColor = new Color3(0.4, 0.4, 0.4);
   const { node: sphereNode } = setupSphere(
     { diameter: 1.5, segments: 32, diffuseColor, specularColor },
-    scene,
-    true
+    scene
   );
   sphereNode.position.y = 0.75;
   addNodeEntity(sphereNode, [

@@ -12,8 +12,7 @@ export function setupSphere(
     diffuseColor: Color3;
     specularColor: Color3;
   },
-  scene: Scene,
-  isServer = false
+  scene: Scene
 ) {
   const sphereNode = CreateSphere(
     "sphereMesh",
