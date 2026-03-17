@@ -1,7 +1,9 @@
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
-import { GameClient } from "@gamenet/core";
+import { GameClient, SnapshotVault } from "@gamenet/core";
 import { removeEntity } from "@skyboxgg/bjs-ecs";
 import {
+  pushEntitySnapshots,
   readCreateEntities,
   readEntity,
   readUpdateEntities,
@@ -16,6 +18,13 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
 
   // set up message handlers
   const serverIdMap: ServerEntityIdMap = new Map();
+  const vault = new SnapshotVault(64);
+  vault.registerSchema("xform", {
+    pos: { lerp: (a, b, t) => Vector3.Lerp(a as Vector3, b as Vector3, t) },
+    quat: {
+      lerp: (a, b, t) => Quaternion.Slerp(a as Quaternion, b as Quaternion, t),
+    },
+  });
   gameClient.on("msg", async (data) => {
     console.debug("Received msg:", data);
   });
@@ -31,12 +40,14 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     if (clientEntity) {
       removeEntity(clientEntity);
       serverIdMap.delete(e.id);
+      vault.remove(e.id);
     }
   });
   gameClient.on(
     "update-entities",
     async (data: { time: number; entities: unknown[] }) => {
       readUpdateEntities(data.entities, serverIdMap);
+      pushEntitySnapshots(vault, data.time, data.entities);
     }
   );
 

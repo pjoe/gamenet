@@ -1,6 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
+import { GameClient, SnapshotVault } from "@gamenet/core";
 import {
   addNodeEntity,
   Comp,
@@ -8,7 +9,6 @@ import {
   queryXforms,
   xform,
 } from "@skyboxgg/bjs-ecs";
-import { GameClient } from "node_modules/@gamenet/core/dist/game_client";
 import { playerSerde } from "./player_comp";
 import { ComponentSerde } from "./serde";
 import { sphereSerde } from "./sphere_comp";
@@ -161,4 +161,22 @@ export function readUpdateEntities(data: unknown, idMap: ServerEntityIdMap) {
       }
     }
   });
+}
+
+export function pushEntitySnapshots(
+  vault: SnapshotVault,
+  time: number,
+  data: unknown
+) {
+  const entities = data as Array<{
+    id: number;
+    comps: Array<{ k: string; v?: Record<string, unknown> }>;
+  }>;
+  for (const e of entities) {
+    for (const c of e.comps) {
+      if (c.v) {
+        vault.push(e.id, c.k, time, c.v);
+      }
+    }
+  }
 }
