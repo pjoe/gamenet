@@ -42,9 +42,15 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
       vault.remove(e.id);
     }
   });
+  let lastServerUpdateTime = 0;
   gameClient.on(
     "update-entities",
     async (data: { time: number; entities: unknown[] }) => {
+      if (data.time < lastServerUpdateTime) {
+        // ignore out-of-order update
+        return;
+      }
+      lastServerUpdateTime = data.time;
       readUpdateEntities(data.entities, serverIdMap);
     }
   );
