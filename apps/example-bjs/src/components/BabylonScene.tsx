@@ -1,4 +1,5 @@
 import { Engine } from "@babylonjs/core/Engines/engine";
+import { EngineOptions } from "@babylonjs/core/Engines/thinEngine";
 import { Scene } from "@babylonjs/core/scene";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -18,29 +19,33 @@ function BabylonScene({
     onSceneReadyRef.current = onSceneReady;
   }, [onSceneReady]);
 
-  const initScene = useCallback((canvas: HTMLCanvasElement) => {
-    const engine = new Engine(canvas, true, {
-      preserveDrawingBuffer: true,
-      stencil: true,
-    });
-    engineRef.current = engine;
+  const initScene = useCallback(
+    (canvas: HTMLCanvasElement, engineOptions: Partial<EngineOptions> = {}) => {
+      const engine = new Engine(canvas, true, {
+        preserveDrawingBuffer: true,
+        stencil: true,
+        ...engineOptions,
+      });
+      engineRef.current = engine;
 
-    const scene = new Scene(engine);
+      const scene = new Scene(engine);
 
-    const triggerReady = () => onSceneReadyRef.current?.(scene);
-    if (scene.isReady()) {
-      triggerReady();
-    } else {
-      scene.onReadyObservable.addOnce(triggerReady);
-    }
+      const triggerReady = () => onSceneReadyRef.current?.(scene);
+      if (scene.isReady()) {
+        triggerReady();
+      } else {
+        scene.onReadyObservable.addOnce(triggerReady);
+      }
 
-    // Render loop
-    engine.runRenderLoop(() => {
-      scene.render();
-    });
+      // Render loop
+      engine.runRenderLoop(() => {
+        scene.render();
+      });
 
-    return { engine, scene };
-  }, []);
+      return { engine, scene };
+    },
+    []
+  );
 
   // Handle canvas ref callback with deferred disposal for StrictMode compat
   const setCanvasRef = useCallback(
