@@ -1,9 +1,8 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
 import { createSnapshotVault, GameClient } from "@gamenet/core";
-import { removeEntity } from "@skyboxgg/bjs-ecs";
+import { queryXforms, removeEntity } from "@skyboxgg/bjs-ecs";
 import {
-  pushEntitySnapshots,
   readCreateEntities,
   readEntity,
   readUpdateEntities,
@@ -47,9 +46,26 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     "update-entities",
     async (data: { time: number; entities: unknown[] }) => {
       readUpdateEntities(data.entities, serverIdMap);
-      pushEntitySnapshots(vault, data.time, data.entities);
     }
   );
+
+  // client snapshots
+  scene.onAfterPhysicsObservable.add(() => {
+    const snapshotXforms = queryXforms(["netsync"]).map((e) => ({
+      id: e.id,
+      pos: e.xform.position,
+      quat:
+        e.xform.rotationQuaternion ??
+        Quaternion.FromEulerVector(e.xform.rotation),
+    }));
+    const now = Date.now();
+    snapshotXforms.forEach((snap) => {
+      vault.push(snap.id, "xform", now, {
+        pos: snap.pos,
+        quat: snap.quat,
+      });
+    });
+  });
 
   // initial handshake
   let serverReadyReceived = 0;
