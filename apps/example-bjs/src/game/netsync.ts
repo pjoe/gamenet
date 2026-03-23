@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
-import { GameClient, SnapshotVault } from "@gamenet/core";
+import { GameClient, type SnapshotVault } from "@gamenet/core";
 import {
   addNodeEntity,
   Comp,

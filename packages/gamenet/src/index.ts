@@ -27,8 +27,13 @@ export type {
 } from "./clients_ping_list";
 
 // Snapshot interpolation
-export { SnapshotVault } from "./snapshot_vault";
-export type { ComponentSchema, LerpFn, PropertySchema } from "./snapshot_vault";
+export { createSnapshotVault } from "./snapshot_vault";
+export type {
+  ComponentSchema,
+  LerpFn,
+  PropertySchema,
+  SnapshotVault,
+} from "./snapshot_vault";
 
 // Routing
 export { createWorkerAdapter } from "./routing/adapter";

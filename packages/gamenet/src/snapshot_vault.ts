@@ -25,6 +25,24 @@ interface Snapshot {
   values: Record<string, unknown>;
 }
 
+/** Public API returned by `createSnapshotVault`. */
+export interface SnapshotVault {
+  registerSchema(compKey: string, schema: ComponentSchema): void;
+  push(
+    entityId: number,
+    compKey: string,
+    time: number,
+    values: Record<string, unknown>
+  ): void;
+  query(
+    entityId: number,
+    compKey: string,
+    time: number
+  ): Record<string, unknown> | null;
+  remove(entityId: number): void;
+  clear(): void;
+}
+
 function storageKey(entityId: number, compKey: string): string {
   return `${entityId}:${compKey}`;
 }
@@ -49,119 +67,103 @@ function findFloor(snapshots: Snapshot[], target: number): number {
   return result;
 }
 
-export class SnapshotVault {
-  private readonly capacity: number;
-  private readonly schemas = new Map<string, ComponentSchema>();
-  private readonly store = new Map<string, Snapshot[]>();
+function push(
+  schemas: Map<string, ComponentSchema>,
+  store: Map<string, Snapshot[]>,
+  capacity: number,
+  entityId: number,
+  compKey: string,
+  time: number,
+  values: Record<string, unknown>
+): void {
+  const schema = schemas.get(compKey);
+  if (!schema) return;
 
-  constructor(capacity: number) {
-    this.capacity = Math.max(1, Math.trunc(capacity));
-  }
-
-  /** Register an interpolation schema for a component key. */
-  registerSchema(compKey: string, schema: ComponentSchema): void {
-    this.schemas.set(compKey, schema);
-  }
-
-  /**
-   * Record a snapshot. Only properties present in the registered schema are
-   * stored. Silently skips if no schema is registered for `compKey`.
-   */
-  push(
-    entityId: number,
-    compKey: string,
-    time: number,
-    values: Record<string, unknown>
-  ): void {
-    const schema = this.schemas.get(compKey);
-    if (!schema) return;
-
-    // Extract only the properties declared in the schema.
-    const filtered: Record<string, unknown> = {};
-    for (const key of Object.keys(schema)) {
-      if (key in values) {
-        filtered[key] = values[key];
-      }
-    }
-
-    const key = storageKey(entityId, compKey);
-    let list = this.store.get(key);
-    if (!list) {
-      list = [];
-      this.store.set(key, list);
-    }
-
-    list.push({ time, values: filtered });
-
-    // Evict oldest when over capacity.
-    while (list.length > this.capacity) {
-      list.shift();
+  const filtered: Record<string, unknown> = {};
+  for (const key of Object.keys(schema)) {
+    if (key in values) {
+      filtered[key] = values[key];
     }
   }
 
-  /**
-   * Query interpolated state for an entity's component at a given time.
-   *
-   * - Returns `null` when no schema is registered or no snapshots exist.
-   * - Clamps to the oldest/newest snapshot when `time` is out of range.
-   * - Interpolates between the two bracketing snapshots otherwise.
-   */
-  query(
-    entityId: number,
-    compKey: string,
-    time: number
-  ): Record<string, unknown> | null {
-    const schema = this.schemas.get(compKey);
-    if (!schema) return null;
-
-    const list = this.store.get(storageKey(entityId, compKey));
-    if (!list || list.length === 0) return null;
-
-    // Clamp: before oldest
-    if (time <= list[0].time) {
-      return { ...list[0].values };
-    }
-
-    // Clamp: after newest
-    const last = list[list.length - 1];
-    if (time >= last.time) {
-      return { ...last.values };
-    }
-
-    // Find the two bracketing snapshots via binary search.
-    const floorIdx = findFloor(list, time);
-    const before = list[floorIdx];
-    const after = list[floorIdx + 1];
-
-    const span = after.time - before.time;
-    const t = span === 0 ? 0 : (time - before.time) / span;
-
-    const result: Record<string, unknown> = {};
-    for (const [prop, propSchema] of Object.entries(schema)) {
-      const a = before.values[prop];
-      const b = after.values[prop];
-      if (a !== undefined && b !== undefined) {
-        result[prop] = propSchema.lerp(a, b, t);
-      } else {
-        // Fall back to whichever value exists (or undefined).
-        result[prop] = b ?? a;
-      }
-    }
-    return result;
+  const key = storageKey(entityId, compKey);
+  let list = store.get(key);
+  if (!list) {
+    list = [];
+    store.set(key, list);
   }
 
-  /** Remove all snapshots for an entity (all component keys). */
-  remove(entityId: number): void {
-    const prefix = `${entityId}:`;
-    for (const key of [...this.store.keys()]) {
-      if (key.startsWith(prefix)) {
-        this.store.delete(key);
-      }
-    }
+  list.push({ time, values: filtered });
+
+  while (list.length > capacity) {
+    list.shift();
+  }
+}
+
+function query(
+  schemas: Map<string, ComponentSchema>,
+  store: Map<string, Snapshot[]>,
+  entityId: number,
+  compKey: string,
+  time: number
+): Record<string, unknown> | null {
+  const schema = schemas.get(compKey);
+  if (!schema) return null;
+
+  const list = store.get(storageKey(entityId, compKey));
+  if (!list || list.length === 0) return null;
+
+  if (time <= list[0].time) {
+    return { ...list[0].values };
   }
 
-  /** Clear all stored data (schemas are preserved). */
-  clear(): void {
-    this.store.clear();
+  const last = list[list.length - 1];
+  if (time >= last.time) {
+    return { ...last.values };
   }
+
+  const floorIdx = findFloor(list, time);
+  const before = list[floorIdx];
+  const after = list[floorIdx + 1];
+
+  const span = after.time - before.time;
+  const t = span === 0 ? 0 : (time - before.time) / span;
+
+  const result: Record<string, unknown> = {};
+  for (const [prop, propSchema] of Object.entries(schema)) {
+    const a = before.values[prop];
+    const b = after.values[prop];
+    if (a !== undefined && b !== undefined) {
+      result[prop] = propSchema.lerp(a, b, t);
+    } else {
+      result[prop] = b ?? a;
+    }
+  }
+  return result;
+}
+
+function remove(store: Map<string, Snapshot[]>, entityId: number): void {
+  const prefix = `${entityId}:`;
+  for (const key of [...store.keys()]) {
+    if (key.startsWith(prefix)) {
+      store.delete(key);
+    }
+  }
+}
+
+/** Create a snapshot vault with the given history capacity per entity/component. */
+export function createSnapshotVault(capacity: number): SnapshotVault {
+  const cap = Math.max(1, Math.trunc(capacity));
+  const schemas = new Map<string, ComponentSchema>();
+  const store = new Map<string, Snapshot[]>();
+
+  return {
+    registerSchema: (compKey, schema) => schemas.set(compKey, schema),
+    push: (entityId, compKey, time, values) =>
+      push(schemas, store, cap, entityId, compKey, time, values),
+    query: (entityId, compKey, time) =>
+      query(schemas, store, entityId, compKey, time),
+    remove: (entityId) => remove(store, entityId),
+    clear: () => store.clear(),
+  };
 }

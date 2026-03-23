@@ -1,4 +1,4 @@
-import { SnapshotVault } from "./snapshot_vault";
+import { createSnapshotVault, SnapshotVault } from "./snapshot_vault";
 
 /** Simple scalar lerp used for all tests. */
 const scalarLerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -7,7 +7,7 @@ describe("SnapshotVault", () => {
   let vault: SnapshotVault;
 
   beforeEach(() => {
-    vault = new SnapshotVault(10);
+    vault = createSnapshotVault(10);
     vault.registerSchema("pos", {
       x: { lerp: scalarLerp },
       y: { lerp: scalarLerp },
@@ -64,7 +64,7 @@ describe("SnapshotVault", () => {
   });
 
   it("evicts oldest snapshots when over capacity", () => {
-    vault = new SnapshotVault(3);
+    vault = createSnapshotVault(3);
     vault.registerSchema("pos", {
       x: { lerp: scalarLerp },
     });

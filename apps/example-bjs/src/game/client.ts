@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
-import { GameClient, SnapshotVault } from "@gamenet/core";
+import { createSnapshotVault, GameClient } from "@gamenet/core";
 import { removeEntity } from "@skyboxgg/bjs-ecs";
 import {
   pushEntitySnapshots,
@@ -18,7 +18,7 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
 
   // set up message handlers
   const serverIdMap: ServerEntityIdMap = new Map();
-  const vault = new SnapshotVault(64);
+  const vault = createSnapshotVault(64);
   vault.registerSchema("xform", {
     pos: { lerp: (a, b, t) => Vector3.Lerp(a as Vector3, b as Vector3, t) },
     quat: {
