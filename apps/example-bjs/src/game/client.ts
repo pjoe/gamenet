@@ -49,8 +49,22 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     }
   );
 
-  // client snapshots
-  scene.onAfterPhysicsObservable.add(() => {
+  // client snapshots (capped at 64 Hz)
+  const snapshotIntervalMs = 1000 / 64;
+  let lastSnapshotTime = 0;
+  scene.onAfterRenderObservable.add(() => {
+    const now = Date.now();
+    const delta = now - lastSnapshotTime;
+    if (delta < snapshotIntervalMs) return;
+    if (lastSnapshotTime === 0) {
+      lastSnapshotTime = now;
+    } else {
+      if (delta > snapshotIntervalMs * 1.2) {
+        lastSnapshotTime = now;
+      } else {
+        lastSnapshotTime += snapshotIntervalMs;
+      }
+    }
     const snapshotXforms = queryXforms(["netsync"]).map((e) => ({
       id: e.id,
       pos: e.xform.position,
@@ -58,7 +72,6 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
         e.xform.rotationQuaternion ??
         Quaternion.FromEulerVector(e.xform.rotation),
     }));
-    const now = Date.now();
     snapshotXforms.forEach((snap) => {
       vault.push(snap.id, "xform", now, {
         pos: snap.pos,
