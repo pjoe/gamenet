@@ -9,7 +9,7 @@ export function setupPlayerCamera(scene: Scene) {
     "camera",
     -Math.PI / 2,
     Math.PI / 3,
-    10,
+    24,
     Vector3.Zero(),
     scene
   );
