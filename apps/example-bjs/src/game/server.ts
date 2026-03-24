@@ -24,8 +24,6 @@ const DEFAULT_NULL_ENGINE_OPTIONS: NullEngineOptions = {
   timeStep: 1.0 / 64, // 64 ticks per second
 };
 
-const PLAYER_SPEED = 4; // units per second
-
 export async function setupBabylonServer() {
   console.debug("Setting up Babylon.js server...");
   //engine

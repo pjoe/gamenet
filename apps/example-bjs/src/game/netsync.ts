@@ -13,6 +13,13 @@ import { playerSerde } from "./player_comp";
 import { ComponentSerde } from "./serde";
 import { sphereSerde } from "./sphere_comp";
 
+export type XformSyncData = {
+  pos: Vector3;
+  quat: Quaternion;
+  linearVel?: Vector3;
+  angularVel?: Vector3;
+};
+
 const componentSerdes: Record<string, ComponentSerde> = {
   sphere: sphereSerde,
   player: playerSerde,
@@ -28,12 +35,15 @@ export function writeEntity(e: Entity<["netsync"]>, isUpdate = false) {
     if (key === "xform") {
       const xformVal = (comp as ReturnType<typeof xform>).value;
       name = xformVal.name;
-      compData = {
+      const xformData: XformSyncData = {
         pos: xformVal.position,
         quat:
           xformVal.rotationQuaternion ??
           Quaternion.FromEulerVector(xformVal.rotation),
+        linearVel: xformVal.physicsBody?.getLinearVelocity(),
+        angularVel: xformVal.physicsBody?.getAngularVelocity(),
       };
+      compData = xformData;
     }
     if (compData) {
       return { k: key, v: compData };
@@ -89,12 +99,17 @@ export function readEntity(
   // xform
   if (xformNode) {
     if (comps.xform) {
-      const xformComp = comps.xform as {
-        pos: Vector3;
-        quat: Quaternion;
-      };
+      const xformComp = comps.xform as XformSyncData;
       xformNode.position.copyFrom(xformComp.pos);
       xformNode.rotationQuaternion = new Quaternion().copyFrom(xformComp.quat);
+      if (xformNode.physicsBody) {
+        if (xformComp.linearVel) {
+          xformNode.physicsBody.setLinearVelocity(xformComp.linearVel);
+        }
+        if (xformComp.angularVel) {
+          xformNode.physicsBody.setAngularVelocity(xformComp.angularVel);
+        }
+      }
     }
     const entity = addNodeEntity(xformNode, compsToAdd);
     idMap.set(Number(e.id), entity);
@@ -117,6 +132,7 @@ export function readCreateEntities(
     .forEach((e) => readEntity(gameClient, e, idMap, scene));
 }
 
+//TODO: not needed with reconciliation
 export function readUpdateEntities(data: unknown, idMap: ServerEntityIdMap) {
   const entities = data as Array<{
     id: number;
@@ -127,10 +143,7 @@ export function readUpdateEntities(data: unknown, idMap: ServerEntityIdMap) {
     const existingEntity = idMap.get(e.id);
     if (existingEntity) {
       const xformComp = e.comps.find((c) => c.k === "xform")?.v as
-        | {
-            pos: Vector3;
-            quat: Quaternion;
-          }
+        | XformSyncData
         | undefined;
       if (xformComp) {
         const existingXform = existingEntity.comps.xform;

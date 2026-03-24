@@ -2,7 +2,12 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
 import { createSnapshotVault, GameClient } from "@gamenet/core";
 import { queryXforms, removeEntity, xform } from "@skyboxgg/bjs-ecs";
-import { readCreateEntities, readEntity, ServerEntityIdMap } from "./netsync";
+import {
+  readCreateEntities,
+  readEntity,
+  ServerEntityIdMap,
+  XformSyncData,
+} from "./netsync";
 import { setupPlayerInput } from "./player_input_system";
 import { setupScene } from "./scene_setup";
 
@@ -17,6 +22,17 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     pos: { lerp: (a, b, t) => Vector3.Lerp(a as Vector3, b as Vector3, t) },
     quat: {
       lerp: (a, b, t) => Quaternion.Slerp(a as Quaternion, b as Quaternion, t),
+    },
+    linearVel: {
+      lerp: (a, b, t) => Vector3.Lerp(a as Vector3, b as Vector3, t),
+    },
+    angularVel: {
+      lerp: (a, b, t) => {
+        const qa = Quaternion.FromEulerVector(a as Vector3);
+        const qb = Quaternion.FromEulerVector(b as Vector3);
+        const qResult = Quaternion.Slerp(qa, qb, t);
+        return qResult.toEulerAngles();
+      },
     },
   });
   gameClient.on("msg", async (data) => {
@@ -46,7 +62,6 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
         return;
       }
       lastServerUpdateTime = data.time;
-      // readUpdateEntities(data.entities, serverIdMap);
 
       // store entitiy diffs
       const entities = data.entities as Array<{
@@ -58,10 +73,7 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
         const existingEntity = serverIdMap.get(e.id);
         if (existingEntity) {
           const xformComp = e.comps.find((c) => c.k === "xform")?.v as
-            | {
-                pos: Vector3;
-                quat: Quaternion;
-              }
+            | XformSyncData
             | undefined;
           if (xformComp) {
             const existingXform = existingEntity.comps.xform;
@@ -71,19 +83,33 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
               existingEntity.id,
               "xform",
               data.time - gameClient.timeDiff
-            ) as { pos: Vector3; quat: Quaternion } | null;
+            ) as XformSyncData | null;
             if (xformVal && vaultXform) {
               const pos = new Vector3().copyFrom(xformComp.pos);
               const quat = new Quaternion().copyFrom(xformComp.quat);
+              const linearVel = xformComp.linearVel
+                ? new Vector3().copyFrom(xformComp.linearVel)
+                : undefined;
+              const angularVel = xformComp.angularVel
+                ? new Vector3().copyFrom(xformComp.angularVel)
+                : undefined;
               const netDiff = {
                 pos: pos.subtract(vaultXform.pos),
                 quat: quat.multiply(vaultXform.quat.conjugate()),
+                linearVel: linearVel?.subtract(
+                  vaultXform.linearVel ?? Vector3.Zero()
+                ),
+                angularVel: angularVel?.subtract(
+                  vaultXform.angularVel ?? Vector3.Zero()
+                ),
               };
               xformVal.metadata = xformVal.metadata ?? {};
               xformVal.metadata.netDiff = netDiff;
               xformVal.metadata.serverXform = {
                 pos,
                 quat,
+                linearVel,
+                angularVel,
               };
             }
           }
@@ -99,16 +125,29 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     for (const e of xformEntities) {
       const xform = e.xform;
       if (xform.metadata?.netDiff) {
-        const netDiff: { pos: Vector3; quat: Quaternion } =
-          xform.metadata.netDiff;
+        const netDiff: XformSyncData = xform.metadata.netDiff;
         const serverXform = xform.metadata.serverXform;
 
-        const posChange = netDiff.pos.scale(10 * dt);
+        // pos
+        const posFraction = Math.min(1, dt * 24);
+        const posChange = netDiff.pos.scale(posFraction);
         xform.position.addInPlace(posChange);
-        netDiff.pos.subtractInPlace(posChange);
+        netDiff.pos.scaleInPlace(1 - posFraction);
 
-        //xform.position.copyFrom(serverXform.pos);
+        // linearVel
+        if (netDiff.linearVel && xform.physicsBody) {
+          const linearVel = xform.physicsBody.getLinearVelocity();
+          const linearVelFraction = Math.min(1, dt * 1.2);
+          const linearVelChange = netDiff.linearVel.scale(linearVelFraction);
+          linearVel.addInPlace(linearVelChange);
+          xform.physicsBody.setLinearVelocity(linearVel);
+          netDiff.linearVel.scaleInPlace(1 - linearVelFraction);
+        }
+
         xform.rotationQuaternion!.copyFrom(serverXform.quat);
+        if (serverXform.angularVel && xform.physicsBody) {
+          xform.physicsBody.setAngularVelocity(serverXform.angularVel);
+        }
       }
     }
   });
