@@ -98,7 +98,7 @@ function GameSidebar({
               <button
                 type="button"
                 onClick={() => {
-                  const url = `${window.location.origin}/join?code=${serverId}`;
+                  const url = `${window.location.origin}${import.meta.env.BASE_URL}join?code=${serverId}`;
                   navigator.clipboard.writeText(url);
                 }}
                 className="p-0.5 rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors duration-200"
