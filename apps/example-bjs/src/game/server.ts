@@ -2,13 +2,14 @@ import {
   NullEngine,
   type NullEngineOptions,
 } from "@babylonjs/core/Engines/nullEngine";
-import { Color3, Vector3 } from "@babylonjs/core/Maths/math";
+import { Color3 } from "@babylonjs/core/Maths/math";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
 import { GameServer } from "@gamenet/core";
 import { addNodeEntity, entityEvents } from "@skyboxgg/bjs-ecs";
 import { writeCreateEntities, writeEntity } from "./netsync";
 import { player } from "./player_comp";
+import { processPlayerInput } from "./player_input_system";
 import { setupPlayer } from "./player_setup";
 import { setupScene } from "./scene_setup";
 import { sphere } from "./sphere_comp";
@@ -104,14 +105,7 @@ export async function setupBabylonServer() {
         for (const [clientId, input] of playerInputs) {
           // if (input.dx === 0 && input.dz === 0) continue;
           const node = playerNodes.get(clientId);
-          if (!node) continue;
-          const pbody = node.physicsBody;
-          if (pbody) {
-            const velocity = pbody.getLinearVelocity() || new Vector3();
-            velocity.x = input.dx * PLAYER_SPEED;
-            velocity.z = input.dz * PLAYER_SPEED;
-            pbody.setLinearVelocity(velocity);
-          }
+          processPlayerInput(node, input);
         }
         gameServer.broadcast("update-entities", {
           time: Date.now(),

@@ -91,17 +91,10 @@ export function readEntity(
     if (comps.xform) {
       const xformComp = comps.xform as {
         pos: Vector3;
-        rot: Vector3 | undefined;
-        quat: Quaternion | undefined;
+        quat: Quaternion;
       };
       xformNode.position.copyFrom(xformComp.pos);
-      if (xformComp.quat) {
-        xformNode.rotationQuaternion = new Quaternion().copyFrom(
-          xformComp.quat
-        );
-      } else if (xformComp.rot) {
-        xformNode.rotation.copyFrom(xformComp.rot);
-      }
+      xformNode.rotationQuaternion = new Quaternion().copyFrom(xformComp.quat);
     }
     const entity = addNodeEntity(xformNode, compsToAdd);
     idMap.set(Number(e.id), entity);
@@ -136,27 +129,17 @@ export function readUpdateEntities(data: unknown, idMap: ServerEntityIdMap) {
       const xformComp = e.comps.find((c) => c.k === "xform")?.v as
         | {
             pos: Vector3;
-            rot: Vector3 | undefined;
-            quat: Quaternion | undefined;
+            quat: Quaternion;
           }
         | undefined;
       if (xformComp) {
-        const xformData = {
-          position: xformComp.pos,
-          rotation: xformComp.rot,
-          rotationQuaternion: xformComp.quat,
-        };
         const existingXform = existingEntity.comps.xform;
         const xformVal = (existingXform as ReturnType<typeof xform>).value;
         if (xformVal) {
-          xformVal.position.copyFrom(xformData.position);
-          if (xformData.rotationQuaternion) {
-            xformVal.rotationQuaternion = new Quaternion().copyFrom(
-              xformData.rotationQuaternion
-            );
-          } else if (xformData.rotation) {
-            xformVal.rotation.copyFrom(xformData.rotation);
-          }
+          xformVal.position.copyFrom(xformComp.pos);
+          xformVal.rotationQuaternion = new Quaternion().copyFrom(
+            xformComp.quat
+          );
         }
       }
     }
