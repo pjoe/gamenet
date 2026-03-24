@@ -129,7 +129,7 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
         const serverXform = xform.metadata.serverXform;
 
         // pos
-        const posFraction = Math.min(1, dt * 24);
+        const posFraction = Math.min(1, dt * 18);
         const posChange = netDiff.pos.scale(posFraction);
         xform.position.addInPlace(posChange);
         netDiff.pos.scaleInPlace(1 - posFraction);
@@ -137,7 +137,7 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
         // linearVel
         if (netDiff.linearVel && xform.physicsBody) {
           const linearVel = xform.physicsBody.getLinearVelocity();
-          const linearVelFraction = Math.min(1, dt * 1.2);
+          const linearVelFraction = Math.min(1, dt * 1);
           const linearVelChange = netDiff.linearVel.scale(linearVelFraction);
           linearVel.addInPlace(linearVelChange);
           xform.physicsBody.setLinearVelocity(linearVel);
