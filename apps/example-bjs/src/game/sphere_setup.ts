@@ -1,4 +1,5 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
@@ -24,6 +25,10 @@ export function setupSphere(
   const mat = new StandardMaterial("sphereMat", scene);
   mat.diffuseColor = options.diffuseColor;
   mat.specularColor = options.specularColor;
+  mat.diffuseTexture = new Texture(
+    "https://assets.babylonjs.com/textures/earth.jpg",
+    scene
+  );
   sphereNode.material = mat;
 
   const agg = new PhysicsAggregate(

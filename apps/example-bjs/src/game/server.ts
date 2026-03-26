@@ -51,7 +51,7 @@ export async function setupBabylonServer() {
   const playerNodes = new Map<string, TransformNode>();
 
   // Create sphere as a netsync ECS entity
-  const diffuseColor = new Color3(0.2, 0.5, 0.9);
+  const diffuseColor = new Color3(0.7, 0.8, 0.9);
   const specularColor = new Color3(0.4, 0.4, 0.4);
   const { node: sphereNode } = setupSphere(
     { diameter: 1.5, segments: 32, diffuseColor, specularColor },
