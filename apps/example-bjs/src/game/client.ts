@@ -161,8 +161,13 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
         );
 
         // angularVel
-        if (serverXform.angularVel && xform.physicsBody) {
-          xform.physicsBody.setAngularVelocity(serverXform.angularVel);
+        if (netDiff.angularVel && xform.physicsBody) {
+          const angularVel = xform.physicsBody.getAngularVelocity();
+          const angularVelFraction = Math.min(1, dt * 2);
+          const angularVelChange = netDiff.angularVel.scale(angularVelFraction);
+          angularVel.addInPlace(angularVelChange);
+          xform.physicsBody.setAngularVelocity(angularVel);
+          netDiff.angularVel.scaleInPlace(1 - angularVelFraction);
         }
       }
     }
