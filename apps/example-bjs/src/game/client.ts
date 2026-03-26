@@ -144,7 +144,23 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
           netDiff.linearVel.scaleInPlace(1 - linearVelFraction);
         }
 
-        xform.rotationQuaternion!.copyFrom(serverXform.quat);
+        // quat
+        const quatFraction = Math.min(1, dt * 18);
+        const quatChange = Quaternion.Slerp(
+          Quaternion.Identity(),
+          netDiff.quat,
+          quatFraction
+        );
+        xform.rotationQuaternion = quatChange.multiply(
+          xform.rotationQuaternion!
+        );
+        netDiff.quat = Quaternion.Slerp(
+          netDiff.quat,
+          Quaternion.Identity(),
+          quatFraction
+        );
+
+        // angularVel
         if (serverXform.angularVel && xform.physicsBody) {
           xform.physicsBody.setAngularVelocity(serverXform.angularVel);
         }
