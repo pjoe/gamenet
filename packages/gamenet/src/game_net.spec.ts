@@ -189,6 +189,8 @@ describe("gameNet", () => {
         source: "server",
         reliable: false,
       });
+      gameClient.dispose();
+      gameServer.dispose();
     },
     TEST_TIMEOUT
   );
