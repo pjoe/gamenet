@@ -6,9 +6,11 @@ import {
   readCreateEntities,
   readEntity,
   ServerEntityIdMap,
+  xformSync,
   XformSyncData,
 } from "./netsync";
 import { setupPlayerInput } from "./player_input_system";
+import { setupReconcile } from "./reconcile_system";
 import { setupScene } from "./scene_setup";
 
 export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
@@ -76,8 +78,9 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
             | XformSyncData
             | undefined;
           if (xformComp) {
-            const existingXform = existingEntity.comps.xform;
-            const xformVal = (existingXform as ReturnType<typeof xform>).value;
+            const xformVal = (
+              existingEntity.comps.xform as ReturnType<typeof xform>
+            ).value;
             // lookup in snapshot vault
             const vaultXform = vault.query(
               existingEntity.id,
@@ -93,24 +96,21 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
               const angularVel = xformComp.angularVel
                 ? new Vector3().copyFrom(xformComp.angularVel)
                 : undefined;
-              const netDiff = {
-                pos: pos.subtract(vaultXform.pos),
-                quat: quat.multiply(vaultXform.quat.conjugate()),
-                linearVel: linearVel?.subtract(
+
+              const xformSyncVal = (
+                existingEntity.comps.xformSync as ReturnType<typeof xformSync>
+              ).value;
+              if (xformSyncVal) {
+                const diff = xformSyncVal.diff;
+                diff.pos = pos.subtract(vaultXform.pos);
+                diff.quat = quat.multiply(vaultXform.quat.conjugate());
+                diff.linearVel = linearVel?.subtract(
                   vaultXform.linearVel ?? Vector3.Zero()
-                ),
-                angularVel: angularVel?.subtract(
+                );
+                diff.angularVel = angularVel?.subtract(
                   vaultXform.angularVel ?? Vector3.Zero()
-                ),
-              };
-              xformVal.metadata = xformVal.metadata ?? {};
-              xformVal.metadata.netDiff = netDiff;
-              xformVal.metadata.serverXform = {
-                pos,
-                quat,
-                linearVel,
-                angularVel,
-              };
+                );
+              }
             }
           }
         }
@@ -119,58 +119,7 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   );
 
   // reconcile
-  scene.onBeforeRenderObservable.add(() => {
-    const xformEntities = queryXforms(["netsync"]);
-    const dt = scene.getEngine().getDeltaTime() / 1000;
-    for (const e of xformEntities) {
-      const xform = e.xform;
-      if (xform.metadata?.netDiff) {
-        const netDiff: XformSyncData = xform.metadata.netDiff;
-
-        // pos
-        const posFraction = Math.min(1, dt * 18);
-        const posChange = netDiff.pos.scale(posFraction);
-        xform.position.addInPlace(posChange);
-        netDiff.pos.scaleInPlace(1 - posFraction);
-
-        // linearVel
-        if (netDiff.linearVel && xform.physicsBody) {
-          const linearVel = xform.physicsBody.getLinearVelocity();
-          const linearVelFraction = Math.min(1, dt * 1);
-          const linearVelChange = netDiff.linearVel.scale(linearVelFraction);
-          linearVel.addInPlace(linearVelChange);
-          xform.physicsBody.setLinearVelocity(linearVel);
-          netDiff.linearVel.scaleInPlace(1 - linearVelFraction);
-        }
-
-        // quat
-        const quatFraction = Math.min(1, dt * 18);
-        const quatChange = Quaternion.Slerp(
-          Quaternion.Identity(),
-          netDiff.quat,
-          quatFraction
-        );
-        xform.rotationQuaternion = quatChange.multiply(
-          xform.rotationQuaternion!
-        );
-        netDiff.quat = Quaternion.Slerp(
-          netDiff.quat,
-          Quaternion.Identity(),
-          quatFraction
-        );
-
-        // angularVel
-        if (netDiff.angularVel && xform.physicsBody) {
-          const angularVel = xform.physicsBody.getAngularVelocity();
-          const angularVelFraction = Math.min(1, dt * 2);
-          const angularVelChange = netDiff.angularVel.scale(angularVelFraction);
-          angularVel.addInPlace(angularVelChange);
-          xform.physicsBody.setAngularVelocity(angularVel);
-          netDiff.angularVel.scaleInPlace(1 - angularVelFraction);
-        }
-      }
-    }
-  });
+  setupReconcile(scene);
 
   // client snapshots (capped at 64 Hz)
   const snapshotIntervalMs = 1000 / 64;

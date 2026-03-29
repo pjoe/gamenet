@@ -1,10 +1,11 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
-import { GameClient, type SnapshotVault } from "@gamenet/core";
+import { GameClient } from "@gamenet/core";
 import {
   addNodeEntity,
   Comp,
+  createComponent,
   Entity,
   queryXforms,
   xform,
@@ -19,6 +20,11 @@ export type XformSyncData = {
   linearVel?: Vector3;
   angularVel?: Vector3;
 };
+
+export const xformSync = createComponent(
+  "xformSync",
+  (diff: XformSyncData) => ({ diff })
+);
 
 const componentSerdes: Record<string, ComponentSerde> = {
   sphere: sphereSerde,
@@ -111,6 +117,15 @@ export function readEntity(
         }
       }
     }
+    // add xform sync comp
+    compsToAdd.push(
+      xformSync({
+        pos: Vector3.Zero(),
+        quat: Quaternion.Identity(),
+        linearVel: Vector3.Zero(),
+        angularVel: Vector3.Zero(),
+      })
+    );
     const entity = addNodeEntity(xformNode, compsToAdd);
     idMap.set(Number(e.id), entity);
   }
@@ -130,49 +145,4 @@ export function readCreateEntities(
   entities
     .filter((e) => !idMap.has(e.id)) // skip existing entitites
     .forEach((e) => readEntity(gameClient, e, idMap, scene));
-}
-
-//TODO: not needed with reconciliation
-export function readUpdateEntities(data: unknown, idMap: ServerEntityIdMap) {
-  const entities = data as Array<{
-    id: number;
-    name: string;
-    comps: Array<{ k: string; v?: unknown }>;
-  }>;
-  entities.forEach((e) => {
-    const existingEntity = idMap.get(e.id);
-    if (existingEntity) {
-      const xformComp = e.comps.find((c) => c.k === "xform")?.v as
-        | XformSyncData
-        | undefined;
-      if (xformComp) {
-        const existingXform = existingEntity.comps.xform;
-        const xformVal = (existingXform as ReturnType<typeof xform>).value;
-        if (xformVal) {
-          xformVal.position.copyFrom(xformComp.pos);
-          xformVal.rotationQuaternion = new Quaternion().copyFrom(
-            xformComp.quat
-          );
-        }
-      }
-    }
-  });
-}
-
-export function pushEntitySnapshots(
-  vault: SnapshotVault,
-  time: number,
-  data: unknown
-) {
-  const entities = data as Array<{
-    id: number;
-    comps: Array<{ k: string; v?: Record<string, unknown> }>;
-  }>;
-  for (const e of entities) {
-    for (const c of e.comps) {
-      if (c.v) {
-        vault.push(e.id, c.k, time, c.v);
-      }
-    }
-  }
 }
