@@ -9,8 +9,6 @@ import {
 let gameServer: GameServer;
 let gameClient: GameClient;
 let signalServer: MockSignalServer;
-let activeServer: GameServer | undefined;
-let activeClient: GameClient | undefined;
 
 function waitForServerEvent(
   channel: Channel,
@@ -53,22 +51,19 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  if (activeClient) {
-    activeClient.dispose();
+  if (gameClient) {
+    gameClient.dispose();
   }
   await new Promise((resolve) => setTimeout(resolve, 250));
-  if (activeServer) {
-    activeServer.dispose();
+  if (gameServer) {
+    gameServer.dispose();
   }
   signalServer.reset();
-  activeClient = undefined;
-  activeServer = undefined;
 });
 
 describe("gameNet", () => {
   it("hosts and joins game with bidirectional messaging", async () => {
     gameServer = await hostGame();
-    activeServer = gameServer;
     expect(gameServer).toBeDefined();
 
     const onConnectionPromise = new Promise<Channel>((resolve) => {
@@ -79,7 +74,6 @@ describe("gameNet", () => {
       serverId: gameServer.serverId,
       nickname: "Player One",
     });
-    activeClient = gameClient;
     expect(gameClient).toBeDefined();
 
     const serverChannel = await onConnectionPromise;
