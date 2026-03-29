@@ -126,7 +126,6 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
       const xform = e.xform;
       if (xform.metadata?.netDiff) {
         const netDiff: XformSyncData = xform.metadata.netDiff;
-        const serverXform = xform.metadata.serverXform;
 
         // pos
         const posFraction = Math.min(1, dt * 18);
