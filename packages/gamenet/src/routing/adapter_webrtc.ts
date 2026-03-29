@@ -2,7 +2,7 @@ import {
   decode as decodeMsgpack,
   encode as encodeMsgpack,
 } from "@msgpack/msgpack";
-import { PeerConn } from "../peer_conn";
+import { createPeerConn, PeerConn } from "../peer_conn";
 import { getSignalServer, SignalServer } from "../signal_server";
 import {
   Adapter,
@@ -268,7 +268,7 @@ export function createClientWebRTCAdapterSession(
     const msg = JSON.parse(message) as SignalMsg;
     switch (msg.t) {
       case "joined": {
-        peerConn = new PeerConn(
+        peerConn = createPeerConn(
           { send: sendSignal },
           args.clientId,
           args.serverId
@@ -384,7 +384,7 @@ export function createServerWebRTCAdapterManager(
       }
       case "offer": {
         const remoteId = msg.from;
-        const peer = new PeerConn(
+        const peer = createPeerConn(
           { send: sendSignal },
           args.serverId,
           remoteId

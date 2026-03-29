@@ -10,109 +10,136 @@ export interface Signaling {
   send(to: string, t: string, data: any): void;
 }
 
-export class PeerConn {
-  public pc: RTCPeerConnection;
-  public dc?: RTCDataChannel;
-  public dcReliable?: RTCDataChannel;
-  public onConnected?: (peerConn: PeerConn) => void;
-  private incomingIceCandidates: RTCIceCandidate[] = [];
-  private didEmitConnected = false;
+export interface PeerConn {
+  pc: RTCPeerConnection;
+  dc?: RTCDataChannel;
+  dcReliable?: RTCDataChannel;
+  localId: string;
+  remoteId: string;
+  onConnected?: (peerConn: PeerConn) => void;
+  sendJSON(msg: any, options?: { reliable: boolean }): void;
+  sendRaw(msg: ArrayBuffer, options?: { reliable: boolean }): void;
+  close(): void;
+  offer(): Promise<void>;
+  incomingOffer(msg: any): Promise<void>;
+  incomingAnswer(msg: any): void;
+  incomingCandidate(msg: any): void;
+}
 
-  constructor(
-    private signaling: Signaling,
-    public localId: string,
-    public remoteId: string
-  ) {
-    this.pc = new RTCPeerConnection({ iceServers });
-    this.pc.onnegotiationneeded = (ev) =>
-      console.log("onnegotiationneeded", ev);
-    this.pc.onconnectionstatechange = () =>
-      console.log("onconnectionstatechange", this.pc.connectionState);
-    this.pc.ondatachannel = (ev) => {
-      console.log("ondatachannel", ev);
-      const dc = ev.channel;
-      dc.binaryType = "arraybuffer";
-      dc.onopen = this.onDcOpen;
-      if (dc.label === "unreliable") {
-        this.dc = dc;
-      } else {
-        this.dcReliable = dc;
-      }
-    };
-    this.pc.onicecandidate = (ev) => {
-      this.signaling.send(this.remoteId, "candidate", ev.candidate);
-    };
-  }
+export function createPeerConn(
+  signaling: Signaling,
+  localId: string,
+  remoteId: string
+): PeerConn {
+  const incomingIceCandidates: RTCIceCandidate[] = [];
+  let didEmitConnected = false;
 
-  public sendJSON(msg: any, options?: { reliable: boolean }) {
-    const channel = options?.reliable ? this.dcReliable : this.dc;
-    if (channel?.readyState === "open") {
-      channel.send(JSON.stringify(msg));
-    }
-  }
+  const pc = new RTCPeerConnection({ iceServers });
 
-  public sendRaw(msg: ArrayBuffer, options?: { reliable: boolean }) {
-    const channel = options?.reliable ? this.dcReliable : this.dc;
-    if (channel?.readyState === "open") {
-      channel.send(msg);
-    }
-  }
-
-  public close() {
-    this.pc.close();
-  }
-
-  public async offer() {
-    this.dcReliable = this.pc.createDataChannel("reliable", { ordered: true });
-    this.dcReliable.binaryType = "arraybuffer";
-    this.dcReliable.onopen = this.onDcOpen;
-    this.dc = this.pc.createDataChannel("unreliable", {
-      ordered: false,
-      maxRetransmits: 0,
-    });
-    this.dc.binaryType = "arraybuffer";
-    this.dc.onopen = this.onDcOpen;
-    const offer = await this.pc.createOffer();
-    console.log("offer", offer);
-    await this.pc.setLocalDescription(offer);
-    this.signaling.send(this.remoteId, "offer", this.pc.localDescription);
-  }
-  public async incomingOffer(msg: any) {
-    console.log("incomingOffer", msg);
-    this.pc.setRemoteDescription(msg.data);
-    const answer = await this.pc.createAnswer();
-    await this.pc.setLocalDescription(answer);
-    this.signaling.send(this.remoteId, "answer", this.pc.localDescription);
-  }
-  public incomingAnswer(msg: any) {
-    console.log("incomingAnswer", msg);
-    this.pc.setRemoteDescription(msg.data);
-    for (const candidate of this.incomingIceCandidates) {
-      this.pc.addIceCandidate(candidate);
-    }
-    this.incomingIceCandidates = [];
-  }
-  public incomingCandidate(msg: any) {
-    console.log("incomingCandidate", msg);
-    if (this.pc.remoteDescription) {
-      this.pc.addIceCandidate(msg.data);
-    } else {
-      this.incomingIceCandidates.push(msg.data);
-    }
-  }
-  private onDcOpen = (ev: Event) => {
+  const onDcOpen = (ev: Event) => {
     const dc = ev.target as RTCDataChannel;
     console.log("dc.onopen", dc);
     if (
-      !this.didEmitConnected &&
-      this.dc &&
-      this.dc.readyState === "open" &&
-      this.dcReliable &&
-      this.dcReliable.readyState === "open" &&
-      this.onConnected
+      !didEmitConnected &&
+      peerConn.dc &&
+      peerConn.dc.readyState === "open" &&
+      peerConn.dcReliable &&
+      peerConn.dcReliable.readyState === "open" &&
+      peerConn.onConnected
     ) {
-      this.didEmitConnected = true;
-      this.onConnected(this);
+      didEmitConnected = true;
+      peerConn.onConnected(peerConn);
     }
   };
+
+  pc.onnegotiationneeded = (ev) => console.log("onnegotiationneeded", ev);
+  pc.onconnectionstatechange = () =>
+    console.log("onconnectionstatechange", pc.connectionState);
+  pc.ondatachannel = (ev) => {
+    console.log("ondatachannel", ev);
+    const dc = ev.channel;
+    dc.binaryType = "arraybuffer";
+    dc.onopen = onDcOpen;
+    if (dc.label === "unreliable") {
+      peerConn.dc = dc;
+    } else {
+      peerConn.dcReliable = dc;
+    }
+  };
+  pc.onicecandidate = (ev) => {
+    signaling.send(remoteId, "candidate", ev.candidate);
+  };
+
+  const peerConn: PeerConn = {
+    pc,
+    dc: undefined,
+    dcReliable: undefined,
+    localId,
+    remoteId,
+    onConnected: undefined,
+
+    sendJSON(msg: any, options?: { reliable: boolean }) {
+      const channel = options?.reliable ? peerConn.dcReliable : peerConn.dc;
+      if (channel?.readyState === "open") {
+        channel.send(JSON.stringify(msg));
+      }
+    },
+
+    sendRaw(msg: ArrayBuffer, options?: { reliable: boolean }) {
+      const channel = options?.reliable ? peerConn.dcReliable : peerConn.dc;
+      if (channel?.readyState === "open") {
+        channel.send(msg);
+      }
+    },
+
+    close() {
+      pc.close();
+    },
+
+    async offer() {
+      peerConn.dcReliable = pc.createDataChannel("reliable", {
+        ordered: true,
+      });
+      peerConn.dcReliable.binaryType = "arraybuffer";
+      peerConn.dcReliable.onopen = onDcOpen;
+      peerConn.dc = pc.createDataChannel("unreliable", {
+        ordered: false,
+        maxRetransmits: 0,
+      });
+      peerConn.dc.binaryType = "arraybuffer";
+      peerConn.dc.onopen = onDcOpen;
+      const offer = await pc.createOffer();
+      console.log("offer", offer);
+      await pc.setLocalDescription(offer);
+      signaling.send(remoteId, "offer", pc.localDescription);
+    },
+
+    async incomingOffer(msg: any) {
+      console.log("incomingOffer", msg);
+      pc.setRemoteDescription(msg.data);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      signaling.send(remoteId, "answer", pc.localDescription);
+    },
+
+    incomingAnswer(msg: any) {
+      console.log("incomingAnswer", msg);
+      pc.setRemoteDescription(msg.data);
+      for (const candidate of incomingIceCandidates) {
+        pc.addIceCandidate(candidate);
+      }
+      incomingIceCandidates.length = 0;
+    },
+
+    incomingCandidate(msg: any) {
+      console.log("incomingCandidate", msg);
+      if (pc.remoteDescription) {
+        pc.addIceCandidate(msg.data);
+      } else {
+        incomingIceCandidates.push(msg.data);
+      }
+    },
+  };
+
+  return peerConn;
 }
