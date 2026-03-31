@@ -1,3 +1,4 @@
+import BabylonScene from "@gamenet/bjs/react";
 import type {
   ClientsPingListEntry,
   ClientsPingListPayload,
@@ -6,7 +7,6 @@ import { useGame } from "@gamenet/core/react";
 import { DebugPanel, useDebugStats } from "@gamenet/example-ui";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import BabylonScene from "../components/BabylonScene";
 import GameSidebar from "../components/GameSidebar";
 import { setupBabylonClient } from "../game/client";
 

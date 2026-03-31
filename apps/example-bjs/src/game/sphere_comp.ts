@@ -1,6 +1,6 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { genericSerde } from "@gamenet/bjs";
 import { createComponent } from "@skyboxgg/bjs-ecs";
-import { genericSerde } from "./serde";
 import { setupSphere } from "./sphere_setup";
 
 type SphereOptions = {

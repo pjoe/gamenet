@@ -1,0 +1,45 @@
+{
+  "name": "@gamenet/bjs",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/BabylonScene.d.ts",
+      "import": "./dist/react/BabylonScene.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "dev": "vite build --watch"
+  },
+  "peerDependencies": {
+    "@babylonjs/core": "^8.0.0",
+    "@babylonjs/inspector": "^8.0.0",
+    "@gamenet/core": "workspace:*",
+    "@skyboxgg/bjs-ecs": "^0.4.0",
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@babylonjs/inspector": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@babylonjs/core": "^8.56.2",
+    "@babylonjs/inspector": "^8.56.2",
+    "@gamenet/core": "workspace:*",
+    "@skyboxgg/bjs-ecs": "^0.4.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.2"
+  }
+}

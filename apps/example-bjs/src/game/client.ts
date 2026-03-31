@@ -1,5 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
+import { setupReconcile } from "@gamenet/bjs";
 import { createSnapshotVault, GameClient } from "@gamenet/core";
 import { queryXforms, removeEntity, xform } from "@skyboxgg/bjs-ecs";
 import {
@@ -10,7 +11,6 @@ import {
   XformSyncData,
 } from "./netsync";
 import { setupPlayerInput } from "./player_input_system";
-import { setupReconcile } from "./reconcile_system";
 import { setupScene } from "./scene_setup";
 
 export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {

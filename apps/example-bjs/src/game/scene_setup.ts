@@ -11,8 +11,8 @@ import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import type { Scene } from "@babylonjs/core/scene";
 import HavokPhysics from "@babylonjs/havok";
+import { setupInspector } from "@gamenet/bjs";
 import HavokInit from "../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
-import { setupInspector } from "./inspector_setup";
 import { setupPlayerCamera } from "./player_camera_setup";
 // Side-effect imports
 import "@babylonjs/core/Materials/standardMaterial";

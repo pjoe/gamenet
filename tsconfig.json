@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "packages/gamenet" },
+    { "path": "packages/gamenet-bjs" },
     { "path": "packages/example-ui" },
     { "path": "apps/example" }
   ]

@@ -1,7 +1,7 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { genericSerde } from "@gamenet/bjs";
 import { createComponent } from "@skyboxgg/bjs-ecs";
 import { setupPlayer } from "./player_setup";
-import { genericSerde } from "./serde";
 
 type PlayerOptions = {
   id: string;
