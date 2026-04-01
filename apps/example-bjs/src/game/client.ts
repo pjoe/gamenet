@@ -1,17 +1,18 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
-import { setupReconcile } from "@gamenet/bjs";
-import { createSnapshotVault, GameClient } from "@gamenet/core";
-import { queryXforms, removeEntity, xform } from "@skyboxgg/bjs-ecs";
 import {
   readCreateEntities,
   readEntity,
   ServerEntityIdMap,
+  setupReconcile,
   xformSync,
   XformSyncData,
-} from "./netsync";
+} from "@gamenet/bjs";
+import { createSnapshotVault, GameClient } from "@gamenet/core";
+import { queryXforms, removeEntity, xform } from "@skyboxgg/bjs-ecs";
 import { setupPlayerInput } from "./player_input_system";
 import { setupScene } from "./scene_setup";
+import { componentSerdes } from "./serdes_config";
 
 export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   console.debug("Setting up Babylon.js client scene...");
@@ -41,10 +42,10 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
     console.debug("Received msg:", data);
   });
   gameClient.on("create-entities", async (data) => {
-    readCreateEntities(gameClient, data, serverIdMap, scene);
+    readCreateEntities(gameClient, data, serverIdMap, componentSerdes, scene);
   });
   gameClient.on("add-entity", async (data) => {
-    readEntity(gameClient, data, serverIdMap, scene);
+    readEntity(gameClient, data, serverIdMap, componentSerdes, scene);
   });
   gameClient.on("remove-entity", async (data) => {
     const e = data as { id: number };

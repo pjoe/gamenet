@@ -5,13 +5,14 @@ import {
 import { Color3 } from "@babylonjs/core/Maths/math";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
+import { writeCreateEntities, writeEntity } from "@gamenet/bjs";
 import { GameServer } from "@gamenet/core";
 import { addNodeEntity, entityEvents } from "@skyboxgg/bjs-ecs";
-import { writeCreateEntities, writeEntity } from "./netsync";
 import { player } from "./player_comp";
 import { processPlayerInput } from "./player_input_system";
 import { setupPlayer } from "./player_setup";
 import { setupScene } from "./scene_setup";
+import { componentSerdes } from "./serdes_config";
 import { sphere } from "./sphere_comp";
 import { setupSphere } from "./sphere_setup";
 
@@ -85,9 +86,13 @@ export async function setupBabylonServer() {
     onGameServerReady: (gameServer: GameServer) => {
       // handle adding/removing of entities
       entityEvents.on("add", ["netsync"], (entity) => {
-        gameServer.broadcast("add-entity", writeEntity(entity), {
-          reliable: true,
-        });
+        gameServer.broadcast(
+          "add-entity",
+          writeEntity(entity, componentSerdes),
+          {
+            reliable: true,
+          }
+        );
       });
       entityEvents.on("remove", ["netsync"], (entity) => {
         gameServer.broadcast(
@@ -107,7 +112,7 @@ export async function setupBabylonServer() {
         }
         gameServer.broadcast("update-entities", {
           time: Date.now(),
-          entities: writeCreateEntities(true),
+          entities: writeCreateEntities(componentSerdes, true),
         });
       });
 
@@ -132,9 +137,13 @@ export async function setupBabylonServer() {
 
         channel.emit("msg", "Welcome to the babylon server!");
 
-        channel.emit("create-entities", writeCreateEntities(), {
-          reliable: true,
-        });
+        channel.emit(
+          "create-entities",
+          writeCreateEntities(componentSerdes, false),
+          {
+            reliable: true,
+          }
+        );
 
         // create player
         const nickname = channel.nickname;
