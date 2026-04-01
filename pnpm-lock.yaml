@@ -214,10 +214,6 @@ importers:
         version: 8.20.0
 
   packages/gamenet-bjs:
-    dependencies:
-      react:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.4
     devDependencies:
       '@babylonjs/core':
         specifier: ^8.56.2

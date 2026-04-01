@@ -29,13 +29,6 @@ export function createWorkspaceAliases(fromDir: string) {
       replacement: resolve(fromDir, "../../packages/example-ui/src/index.ts"),
     },
     {
-      find: "@gamenet/bjs/react",
-      replacement: resolve(
-        fromDir,
-        "../../packages/gamenet-bjs/src/react/BabylonScene.tsx"
-      ),
-    },
-    {
       find: /^@gamenet\/bjs$/,
       replacement: resolve(fromDir, "../../packages/gamenet-bjs/src/index.ts"),
     },
