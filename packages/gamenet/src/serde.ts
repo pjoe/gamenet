@@ -3,7 +3,17 @@ import {
   encode as encodeMsgpack,
 } from "@msgpack/msgpack";
 
-import { decode as decodeCbor, encode as encodeCbor } from "cbor-x";
+import {
+  Decoder as CborDecoder,
+  Encoder as CborEncoder,
+  Options as CborOptions,
+} from "cbor-x";
+const cborOptions: CborOptions = {
+  useRecords: true,
+  pack: true,
+};
+const cborEncoder = new CborEncoder(cborOptions);
+const cborDecoder = new CborDecoder(cborOptions);
 
 export interface PayloadSerde {
   encode: (value: unknown) => ArrayBuffer;
@@ -54,11 +64,11 @@ export function createMsgpackPayloadSerde(): PayloadSerde {
 export function createCborPayloadSerde(): PayloadSerde {
   return {
     encode(value: unknown): ArrayBuffer {
-      return toArrayBuffer(encodeCbor(value));
+      return toArrayBuffer(cborEncoder.encode(value));
     },
     decode<T = unknown>(buffer: ArrayBuffer): T | undefined {
       try {
-        return decodeCbor(new Uint8Array(buffer)) as T;
+        return cborDecoder.decode(new Uint8Array(buffer)) as T;
       } catch {
         return undefined;
       }
@@ -66,6 +76,6 @@ export function createCborPayloadSerde(): PayloadSerde {
   };
 }
 
-export const defaultPayloadSerde = createMsgpackPayloadSerde();
+// export const defaultPayloadSerde = createMsgpackPayloadSerde();
 // export const defaultPayloadSerde = createJsonPayloadSerde();
-// export const defaultPayloadSerde = createCborPayloadSerde();
+export const defaultPayloadSerde = createCborPayloadSerde();
