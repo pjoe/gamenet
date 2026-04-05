@@ -7,6 +7,9 @@
 export * from "./game_client";
 export * from "./game_server";
 
+// Handshake
+export { channelReady, clientReady } from "./handshake";
+
 // Signaling
 export { getSignalServer, selectSignalServer } from "./signal_server";
 export type { SignalServer } from "./signal_server";

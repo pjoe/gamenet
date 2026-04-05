@@ -8,7 +8,7 @@ import {
   xformSync,
   XformSyncData,
 } from "@gamenet/bjs";
-import { createSnapshotVault, GameClient } from "@gamenet/core";
+import { clientReady, createSnapshotVault, GameClient } from "@gamenet/core";
 import { queryXforms, removeEntity, xform } from "@skyboxgg/bjs-ecs";
 import { setupPlayerInput } from "./player_input_system";
 import { setupScene } from "./scene_setup";
@@ -154,22 +154,7 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   });
 
   // initial handshake
-  let serverReadyReceived = 0;
-  gameClient.on("ready", (ack) => {
-    serverReadyReceived = ack + 1;
-  });
-  for (let i = 0; i < 10; ++i) {
-    gameClient.emit("ready", serverReadyReceived, { reliable: true });
-    if (serverReadyReceived > 1) {
-      console.debug("Handshake with server complete");
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  if (serverReadyReceived < 1) {
-    console.error("Failed to handshake with server");
-    throw new Error("Failed to handshake with server");
-  }
+  await clientReady(gameClient);
 
   setupPlayerInput(gameClient, scene);
 }

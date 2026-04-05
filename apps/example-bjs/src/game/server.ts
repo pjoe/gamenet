@@ -6,7 +6,7 @@ import { Color3 } from "@babylonjs/core/Maths/math";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
 import { writeCreateEntities, writeEntity } from "@gamenet/bjs";
-import { GameServer } from "@gamenet/core";
+import { channelReady, GameServer } from "@gamenet/core";
 import { addNodeEntity, entityEvents } from "@skyboxgg/bjs-ecs";
 import { player } from "./player_comp";
 import { processPlayerInput } from "./player_input_system";
@@ -118,21 +118,7 @@ export async function setupBabylonServer() {
 
       gameServer.onConnection = async (channel) => {
         // initial handshake
-        let clientReadyReceived = 0;
-        channel.on("ready", (_, ack) => {
-          clientReadyReceived = ack + 1;
-        });
-        for (let i = 0; i < 10; ++i) {
-          channel.emit("ready", clientReadyReceived, { reliable: true });
-          if (clientReadyReceived > 1) {
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-        if (clientReadyReceived < 1) {
-          console.error("Failed to handshake with client");
-          throw new Error("Failed to handshake with client");
-        }
+        await channelReady(channel);
         await new Promise((resolve) => setTimeout(resolve, 60));
 
         channel.emit("msg", "Welcome to the babylon server!");
