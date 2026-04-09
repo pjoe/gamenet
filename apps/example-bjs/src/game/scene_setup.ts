@@ -17,6 +17,9 @@ import { setupPlayerCamera } from "./player_camera_setup";
 // Side-effect imports
 import "@babylonjs/core/Materials/standardMaterial";
 import "@babylonjs/core/Physics/v2/physicsEngineComponent";
+import { addNodeEntity } from "@skyboxgg/bjs-ecs";
+import { sphere } from "./sphere_comp";
+import { setupSphere } from "./sphere_setup";
 
 export async function setupScene(scene: Scene, isServer = false) {
   scene.clearColor = new Color4(0.1, 0.1, 0.15, 1);
@@ -84,6 +87,21 @@ export async function setupScene(scene: Scene, isServer = false) {
   wallW.position.set(-10, 1, 0);
   new PhysicsAggregate(wallW, PhysicsShapeType.BOX, { mass: 0 }, scene);
   wallW.material = wallMat;
+
+  if (isServer) {
+    // Create sphere as a netsync ECS entity
+    const diffuseColor = new Color3(0.7, 0.8, 0.9);
+    const specularColor = new Color3(0.4, 0.4, 0.4);
+    const { node: sphereNode } = setupSphere(
+      { diameter: 1.5, segments: 32, diffuseColor, specularColor },
+      scene
+    );
+    sphereNode.position.y = 0.75;
+    addNodeEntity(sphereNode, [
+      sphere({ diameter: 1.5, segments: 32, diffuseColor, specularColor }),
+      "netsync",
+    ]);
+  }
 
   if (!isServer) {
     setupInspector(scene);
