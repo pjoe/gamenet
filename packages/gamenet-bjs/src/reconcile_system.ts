@@ -1,6 +1,13 @@
-import { Quaternion, Scene } from "@babylonjs/core";
-import { queryXforms } from "@skyboxgg/bjs-ecs";
-import { xformSync, XformSyncData } from "./netsync";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Scene } from "@babylonjs/core/scene.js";
+import { SnapshotVault } from "@gamenet/core";
+import { queryXforms, xform } from "@skyboxgg/bjs-ecs";
+import {
+  EntitiesSync,
+  ServerEntityIdMap,
+  xformSync,
+  XformSyncData,
+} from "./netsync";
 
 export function setupReconcile(scene: Scene) {
   scene.onBeforeRenderObservable.add(() => {
@@ -48,6 +55,58 @@ export function setupReconcile(scene: Scene) {
         angularVel.addInPlace(angularVelChange);
         xform.physicsBody.setAngularVelocity(angularVel);
         netDiff.angularVel.scaleInPlace(1 - angularVelFraction);
+      }
+    }
+  });
+}
+
+export function storeEntityXformDiffs(
+  entities: EntitiesSync,
+  timeDiff: number,
+  vault: SnapshotVault,
+  serverIdMap: ServerEntityIdMap
+) {
+  entities.forEach((e) => {
+    const existingEntity = serverIdMap.get(e.id);
+    if (existingEntity) {
+      const xformComp = e.comps.find((c) => c.k === "xform")?.v as
+        | XformSyncData
+        | undefined;
+      if (xformComp) {
+        const xformVal = (
+          existingEntity.comps.xform as ReturnType<typeof xform>
+        ).value;
+        // lookup in snapshot vault
+        const vaultXform = vault.query(
+          existingEntity.id,
+          "xform",
+          timeDiff
+        ) as XformSyncData | null;
+        if (xformVal && vaultXform) {
+          const pos = new Vector3().copyFrom(xformComp.pos);
+          const quat = new Quaternion().copyFrom(xformComp.quat);
+          const linearVel = xformComp.linearVel
+            ? new Vector3().copyFrom(xformComp.linearVel)
+            : undefined;
+          const angularVel = xformComp.angularVel
+            ? new Vector3().copyFrom(xformComp.angularVel)
+            : undefined;
+
+          const xformSyncVal = (
+            existingEntity.comps.xformSync as ReturnType<typeof xformSync>
+          ).value;
+          if (xformSyncVal) {
+            const diff = xformSyncVal.diff;
+            diff.pos = pos.subtract(vaultXform.pos);
+            diff.quat = quat.multiply(vaultXform.quat.conjugate());
+            diff.linearVel = linearVel?.subtract(
+              vaultXform.linearVel ?? Vector3.Zero()
+            );
+            diff.angularVel = angularVel?.subtract(
+              vaultXform.angularVel ?? Vector3.Zero()
+            );
+          }
+        }
       }
     }
   });

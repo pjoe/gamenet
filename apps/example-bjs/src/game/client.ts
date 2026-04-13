@@ -5,11 +5,11 @@ import {
   readEntity,
   ServerEntityIdMap,
   setupReconcile,
-  xformSync,
-  XformSyncData,
+  storeEntityXformDiffs,
+  type EntitiesSync,
 } from "@gamenet/bjs";
 import { clientReady, createSnapshotVault, GameClient } from "@gamenet/core";
-import { queryXforms, removeEntity, xform } from "@skyboxgg/bjs-ecs";
+import { queryXforms, removeEntity } from "@skyboxgg/bjs-ecs";
 import { setupPlayerInput } from "./player_input_system";
 import { setupScene } from "./scene_setup";
 import { componentSerdes } from "./serdes_config";
@@ -66,56 +66,14 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
       }
       lastServerUpdateTime = data.time;
 
-      // store entitiy diffs
-      const entities = data.entities as Array<{
-        id: number;
-        name: string;
-        comps: Array<{ k: string; v?: unknown }>;
-      }>;
-      entities.forEach((e) => {
-        const existingEntity = serverIdMap.get(e.id);
-        if (existingEntity) {
-          const xformComp = e.comps.find((c) => c.k === "xform")?.v as
-            | XformSyncData
-            | undefined;
-          if (xformComp) {
-            const xformVal = (
-              existingEntity.comps.xform as ReturnType<typeof xform>
-            ).value;
-            // lookup in snapshot vault
-            const vaultXform = vault.query(
-              existingEntity.id,
-              "xform",
-              data.time - gameClient.timeDiff
-            ) as XformSyncData | null;
-            if (xformVal && vaultXform) {
-              const pos = new Vector3().copyFrom(xformComp.pos);
-              const quat = new Quaternion().copyFrom(xformComp.quat);
-              const linearVel = xformComp.linearVel
-                ? new Vector3().copyFrom(xformComp.linearVel)
-                : undefined;
-              const angularVel = xformComp.angularVel
-                ? new Vector3().copyFrom(xformComp.angularVel)
-                : undefined;
-
-              const xformSyncVal = (
-                existingEntity.comps.xformSync as ReturnType<typeof xformSync>
-              ).value;
-              if (xformSyncVal) {
-                const diff = xformSyncVal.diff;
-                diff.pos = pos.subtract(vaultXform.pos);
-                diff.quat = quat.multiply(vaultXform.quat.conjugate());
-                diff.linearVel = linearVel?.subtract(
-                  vaultXform.linearVel ?? Vector3.Zero()
-                );
-                diff.angularVel = angularVel?.subtract(
-                  vaultXform.angularVel ?? Vector3.Zero()
-                );
-              }
-            }
-          }
-        }
-      });
+      // store entitiy xform diffs
+      const entities = data.entities as EntitiesSync;
+      storeEntityXformDiffs(
+        entities,
+        data.time - gameClient.timeDiff,
+        vault,
+        serverIdMap
+      );
     }
   );
 

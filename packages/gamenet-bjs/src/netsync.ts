@@ -56,10 +56,11 @@ export function writeEntity(
   return { id: e.id, name, comps };
 }
 
+export type EntitiesSync = ReturnType<typeof writeEntity>[];
 export function writeCreateEntities(
   registry: Record<string, ComponentSerde>,
   isUpdate = false
-) {
+): EntitiesSync {
   const entities = queryXforms(["netsync"]);
   const data = entities.map((e) => writeEntity(e, registry, isUpdate));
   return data;
