@@ -33,13 +33,13 @@ jobs:
 
       - name: Publish @gamenet/core
         working-directory: packages/gamenet
-        run: pnpm publish --access public
+        run: pnpm publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @gamenet/bjs
         working-directory: packages/gamenet-bjs
-        run: pnpm publish --access public
+        run: pnpm publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
