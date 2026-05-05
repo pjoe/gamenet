@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   publish:
@@ -34,14 +35,10 @@ jobs:
       - name: Publish @gamenet/core
         working-directory: packages/gamenet
         run: pnpm publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @gamenet/bjs
         working-directory: packages/gamenet-bjs
         run: pnpm publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Clean up dist folders
         run: rm -rf packages/*/dist
