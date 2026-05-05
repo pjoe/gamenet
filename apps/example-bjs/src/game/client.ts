@@ -96,17 +96,14 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
         lastSnapshotTime += snapshotIntervalMs;
       }
     }
-    const snapshotXforms = queryXforms(["netsync"]).map((e) => ({
-      id: e.id,
-      pos: e.xform.position,
-      quat:
-        e.xform.rotationQuaternion ??
-        Quaternion.FromEulerVector(e.xform.rotation),
-    }));
-    snapshotXforms.forEach((snap) => {
-      vault.push(snap.id, "xform", now, {
-        pos: snap.pos,
-        quat: snap.quat,
+    queryXforms(["netsync"]).forEach((e) => {
+      vault.push(e.id, "xform", now, {
+        pos: e.xform.position,
+        quat:
+          e.xform.rotationQuaternion ??
+          Quaternion.FromEulerVector(e.xform.rotation),
+        linearVel: e.xform.physicsBody?.getLinearVelocity(),
+        angularVel: e.xform.physicsBody?.getAngularVelocity(),
       });
     });
   });
