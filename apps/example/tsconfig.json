@@ -20,6 +20,7 @@
       "@gamenet/core/worker-setup": [
         "../../packages/gamenet/src/routing/host_server_worker_setup.ts"
       ],
+      "@gamenet/bjs": ["../../packages/gamenet-bjs/src/index.ts"],
       "@gamenet/example-ui": ["../../packages/example-ui/src/index.ts"],
       "@gamenet/example-ui/styles": ["../../packages/example-ui/src/index.css"]
     },

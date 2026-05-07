@@ -12,6 +12,13 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
+    "paths": {
+      "@gamenet/core": ["../gamenet/src/index.ts"],
+      "@gamenet/core/react": ["../gamenet/src/react/GameContext.tsx"],
+      "@gamenet/core/worker-setup": [
+        "../gamenet/src/routing/host_server_worker_setup.ts"
+      ]
+    },
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true

@@ -5,6 +5,7 @@
   },
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "typescript.preferGoToSourceDefinition": true,
   "chat.tools.terminal.autoApprove": {
     "npx tsc": true
   }

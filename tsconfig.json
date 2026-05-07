@@ -1,5 +1,18 @@
 {
   "files": [],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@gamenet/core": ["packages/gamenet/src/index.ts"],
+      "@gamenet/core/react": ["packages/gamenet/src/react/GameContext.tsx"],
+      "@gamenet/core/worker-setup": [
+        "packages/gamenet/src/routing/host_server_worker_setup.ts"
+      ],
+      "@gamenet/bjs": ["packages/gamenet-bjs/src/index.ts"],
+      "@gamenet/example-ui": ["packages/example-ui/src/index.ts"],
+      "@gamenet/example-ui/styles": ["packages/example-ui/src/index.css"]
+    }
+  },
   "references": [
     { "path": "packages/gamenet" },
     { "path": "packages/gamenet-bjs" },
