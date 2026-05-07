@@ -26,10 +26,22 @@ export function setupLevel(scene: Scene) {
   wallS.position.set(0, 1, -10);
   new PhysicsAggregate(wallS, PhysicsShapeType.BOX, { mass: 0 }, scene);
   wallS.material = wallMat;
-  const wallE = CreateBox("wallE", { width: 0.5, height: 2, depth: 20 }, scene);
-  wallE.position.set(10, 1, 0);
-  new PhysicsAggregate(wallE, PhysicsShapeType.BOX, { mass: 0 }, scene);
-  wallE.material = wallMat;
+  const wallEN = CreateBox(
+    "wallEN",
+    { width: 0.5, height: 2, depth: 8 },
+    scene
+  );
+  wallEN.position.set(10, 1, 6);
+  new PhysicsAggregate(wallEN, PhysicsShapeType.BOX, { mass: 0 }, scene);
+  wallEN.material = wallMat;
+  const wallES = CreateBox(
+    "wallES",
+    { width: 0.5, height: 2, depth: 8 },
+    scene
+  );
+  wallES.position.set(10, 1, -6);
+  new PhysicsAggregate(wallES, PhysicsShapeType.BOX, { mass: 0 }, scene);
+  wallES.material = wallMat;
   const wallW = CreateBox("wallW", { width: 0.5, height: 2, depth: 20 }, scene);
   wallW.position.set(-10, 1, 0);
   new PhysicsAggregate(wallW, PhysicsShapeType.BOX, { mass: 0 }, scene);

@@ -17,6 +17,7 @@ import "@babylonjs/core/Physics/v2/physicsEngineComponent";
 import { addNodeEntity } from "@skyboxgg/bjs-ecs";
 import { setupLevel } from "./level_setup";
 import { sphere } from "./sphere/sphere_comp";
+import { setupSphereRespawnSystem } from "./sphere/sphere_respawn_system";
 import { setupSphere } from "./sphere/sphere_setup";
 
 export async function setupScene(scene: Scene, isServer = false) {
@@ -69,6 +70,7 @@ export async function setupScene(scene: Scene, isServer = false) {
       scene
     );
     sphereNode.position.y = 0.75;
+    setupSphereRespawnSystem(scene);
     addNodeEntity(sphereNode, [
       sphere({ diameter: 1.5, segments: 32, diffuseColor, specularColor }),
       "netsync",
