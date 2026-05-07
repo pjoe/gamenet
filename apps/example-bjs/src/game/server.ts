@@ -8,9 +8,9 @@ import { Scene } from "@babylonjs/core/scene";
 import { writeCreateEntities, writeEntity } from "@gamenet/bjs";
 import { channelReady, GameServer } from "@gamenet/core";
 import { addNodeEntity, entityEvents } from "@skyboxgg/bjs-ecs";
-import { player } from "./player_comp";
-import { processPlayerInput } from "./player_input_system";
-import { setupPlayer } from "./player_setup";
+import { player } from "./player/player_comp";
+import { processPlayerInput } from "./player/player_input_system";
+import { setupPlayer } from "./player/player_setup";
 import { setupScene } from "./scene_setup";
 import { componentSerdes } from "./serdes_config";
 

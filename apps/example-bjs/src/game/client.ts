@@ -10,7 +10,7 @@ import {
 } from "@gamenet/bjs";
 import { clientReady, createSnapshotVault, GameClient } from "@gamenet/core";
 import { queryXforms, removeEntity } from "@skyboxgg/bjs-ecs";
-import { setupPlayerInput } from "./player_input_system";
+import { setupPlayerInput } from "./player/player_input_system";
 import { setupScene } from "./scene_setup";
 import { componentSerdes } from "./serdes_config";
 
