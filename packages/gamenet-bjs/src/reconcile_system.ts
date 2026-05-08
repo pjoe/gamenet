@@ -76,6 +76,44 @@ export function storeEntityXformDiffs(
         const xformVal = (
           existingEntity.comps.xform as ReturnType<typeof xform>
         ).value;
+        const xformSyncVal = (
+          existingEntity.comps.xformSync as ReturnType<typeof xformSync>
+        ).value;
+
+        // Teleport: if server reports a newer teleportTime, snap the entity
+        // to the server-reported state and skip diff/reconciliation for this
+        // update.
+        if (
+          xformVal &&
+          xformSyncVal &&
+          xformComp.teleportTime !== undefined &&
+          xformComp.teleportTime > xformSyncVal.lastTeleportTime
+        ) {
+          xformVal.position.copyFrom(xformComp.pos);
+          if (!xformVal.rotationQuaternion) {
+            xformVal.rotationQuaternion = new Quaternion();
+          }
+          xformVal.rotationQuaternion.copyFrom(xformComp.quat);
+          if (xformVal.physicsBody) {
+            if (xformComp.linearVel) {
+              xformVal.physicsBody.setLinearVelocity(xformComp.linearVel);
+            }
+            if (xformComp.angularVel) {
+              xformVal.physicsBody.setAngularVelocity(xformComp.angularVel);
+            }
+          }
+          const diff = xformSyncVal.diff;
+          diff.pos.setAll(0);
+          diff.quat.copyFrom(Quaternion.Identity());
+          diff.linearVel?.setAll(0);
+          diff.angularVel?.setAll(0);
+          xformSyncVal.lastTeleportTime = xformComp.teleportTime;
+          // Drop stale snapshots; next client snapshot tick will repopulate
+          // based on the new post-teleport state.
+          vault.remove(existingEntity.id);
+          return;
+        }
+
         // lookup in snapshot vault
         const vaultXform = vault.query(
           existingEntity.id,
@@ -92,9 +130,6 @@ export function storeEntityXformDiffs(
             ? new Vector3().copyFrom(xformComp.angularVel)
             : undefined;
 
-          const xformSyncVal = (
-            existingEntity.comps.xformSync as ReturnType<typeof xformSync>
-          ).value;
           if (xformSyncVal) {
             const diff = xformSyncVal.diff;
             diff.pos = pos.subtract(vaultXform.pos);

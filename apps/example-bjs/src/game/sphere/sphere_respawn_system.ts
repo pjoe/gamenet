@@ -1,5 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Scene } from "@babylonjs/core/scene";
+import { markXformTeleport } from "@gamenet/bjs";
 import { entityEvents, queryXforms, xform } from "@skyboxgg/bjs-ecs";
 import { sphere } from "./sphere_comp";
 
@@ -34,6 +35,8 @@ export function setupSphereRespawnSystem(scene: Scene) {
         pbody.setLinearVelocity(Vector3.Zero());
         pbody.setAngularVelocity(Vector3.Zero());
       }
+
+      markXformTeleport(node);
     }
   });
 }

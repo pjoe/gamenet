@@ -17,12 +17,32 @@ export type XformSyncData = {
   quat: Quaternion;
   linearVel?: Vector3;
   angularVel?: Vector3;
+  /** Server time (ms) of the last teleport for this xform, if any. */
+  teleportTime?: number;
 };
 
 export const xformSync = createComponent(
   "xformSync",
-  (diff: XformSyncData) => ({ diff })
+  (init: { diff: XformSyncData; lastTeleportTime?: number }) => ({
+    diff: init.diff,
+    lastTeleportTime: init.lastTeleportTime ?? 0,
+  })
 );
+
+/**
+ * Mark the given transform node as having teleported at `time` (ms).
+ * The next networked update will carry this `teleportTime`, allowing
+ * clients to snap the entity instead of interpolating toward the new state.
+ */
+export function markXformTeleport(
+  node: TransformNode,
+  time: number = Date.now()
+): void {
+  if (!node.metadata) {
+    node.metadata = {};
+  }
+  (node.metadata as { teleportTime?: number }).teleportTime = time;
+}
 
 export function writeEntity(
   e: Entity<["netsync"]>,
@@ -46,6 +66,12 @@ export function writeEntity(
         linearVel: xformVal.physicsBody?.getLinearVelocity(),
         angularVel: xformVal.physicsBody?.getAngularVelocity(),
       };
+      const teleportTime = (
+        xformVal.metadata as { teleportTime?: number } | null
+      )?.teleportTime;
+      if (teleportTime !== undefined) {
+        xformData.teleportTime = teleportTime;
+      }
       compData = xformData;
     }
     if (compData) {
@@ -122,10 +148,14 @@ export function readEntity(
     // add xform sync comp
     compsToAdd.push(
       xformSync({
-        pos: Vector3.Zero(),
-        quat: Quaternion.Identity(),
-        linearVel: Vector3.Zero(),
-        angularVel: Vector3.Zero(),
+        diff: {
+          pos: Vector3.Zero(),
+          quat: Quaternion.Identity(),
+          linearVel: Vector3.Zero(),
+          angularVel: Vector3.Zero(),
+        },
+        lastTeleportTime:
+          (comps.xform as XformSyncData | undefined)?.teleportTime ?? 0,
       })
     );
     const entity = addNodeEntity(xformNode, compsToAdd);
