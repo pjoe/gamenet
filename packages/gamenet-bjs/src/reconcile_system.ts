@@ -3,6 +3,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { SnapshotVault } from "@gamenet/core";
 import { queryXforms, xform } from "@skyboxgg/bjs-ecs";
 import {
+  deserializeXformSyncData,
   EntitiesSync,
   ServerEntityIdMap,
   xformSync,
@@ -69,9 +70,9 @@ export function storeEntityXformDiffs(
   entities.forEach((e) => {
     const existingEntity = serverIdMap.get(e.id);
     if (existingEntity) {
-      const xformComp = e.comps.find((c) => c.k === "xform")?.v as
-        | XformSyncData
-        | undefined;
+      const xformComp = e.xform
+        ? deserializeXformSyncData(e.xform as number[])
+        : undefined;
       if (xformComp) {
         const xformVal = (
           existingEntity.comps.xform as ReturnType<typeof xform>

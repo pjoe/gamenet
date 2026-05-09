@@ -21,6 +21,52 @@ export type XformSyncData = {
   teleportTime?: number;
 };
 
+export function serializeXformSyncData(data: XformSyncData): number[] {
+  const arr = [
+    (data.linearVel ? 1 : 0) |
+      (data.angularVel ? 2 : 0) |
+      (data.teleportTime ? 4 : 0),
+    data.pos.x,
+    data.pos.y,
+    data.pos.z,
+    data.quat.x,
+    data.quat.y,
+    data.quat.z,
+    data.quat.w,
+  ];
+  if (data.linearVel) {
+    arr.push(data.linearVel.x, data.linearVel.y, data.linearVel.z);
+  }
+  if (data.angularVel) {
+    arr.push(data.angularVel.x, data.angularVel.y, data.angularVel.z);
+  }
+  if (data.teleportTime) {
+    arr.push(data.teleportTime);
+  }
+  return arr;
+}
+
+export function deserializeXformSyncData(arr: number[]): XformSyncData {
+  const flags = arr[0];
+  const data: XformSyncData = {
+    pos: new Vector3(arr[1], arr[2], arr[3]),
+    quat: new Quaternion(arr[4], arr[5], arr[6], arr[7]),
+  };
+  let index = 8;
+  if (flags & 1) {
+    data.linearVel = new Vector3(arr[index], arr[index + 1], arr[index + 2]);
+    index += 3;
+  }
+  if (flags & 2) {
+    data.angularVel = new Vector3(arr[index], arr[index + 1], arr[index + 2]);
+    index += 3;
+  }
+  if (flags & 4) {
+    data.teleportTime = arr[index];
+  }
+  return data;
+}
+
 export const xformSync = createComponent(
   "xformSync",
   (init: { diff: XformSyncData; lastTeleportTime?: number }) => ({
@@ -44,14 +90,20 @@ export function markXformTeleport(
   (node.metadata as { teleportTime?: number }).teleportTime = time;
 }
 
+type SerializedEntity = {
+  id: number;
+  name?: string;
+  [key: string]: unknown;
+};
 export function writeEntity(
   e: Entity<["netsync"]>,
   registry: Record<string, ComponentSerde>,
   isUpdate = false
-) {
+): SerializedEntity {
   let name = "nameless";
-  const comps = Object.entries(e.comps).map(([key, comp]) => {
-    let compData = undefined;
+  const comps: Record<string, unknown> = {};
+  for (const [key, comp] of Object.entries(e.comps)) {
+    let compData: unknown = undefined;
     if (key in registry && !isUpdate) {
       compData = registry[key].serialize(comp);
     }
@@ -72,14 +124,18 @@ export function writeEntity(
       if (teleportTime !== undefined) {
         xformData.teleportTime = teleportTime;
       }
-      compData = xformData;
+      compData = serializeXformSyncData(xformData);
     }
-    if (compData) {
-      return { k: key, v: compData };
+    if (compData !== undefined || !isUpdate) {
+      // skip tag comps for updates to minimize bandwidth
+      comps[key] = compData ?? true;
     }
-    return { k: key };
-  });
-  return { id: e.id, name, comps };
+  }
+  if (isUpdate) {
+    // for updates, don't include the name to minimize bandwidth
+    return { id: e.id, ...comps };
+  }
+  return { id: e.id, name, ...comps };
 }
 
 export type EntitiesSync = ReturnType<typeof writeEntity>[];
@@ -96,18 +152,16 @@ export type ServerEntityIdMap = Map<number, Entity<["netsync"]>>;
 
 export function readEntity(
   gameClient: GameClient,
-  e: { id: number; name: string; comps: Array<{ k: string; v?: unknown }> },
+  e: SerializedEntity,
   idMap: ServerEntityIdMap,
   registry: Record<string, ComponentSerde>,
   scene: Scene
 ) {
-  const comps = e.comps.reduce(
-    (acc, { k, v }) => {
-      acc[k] = v ?? {};
-      return acc;
-    },
-    {} as Record<string, unknown>
-  );
+  const comps: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(e)) {
+    if (k === "id" || k === "name") continue;
+    comps[k] = v === true ? {} : (v ?? {});
+  }
   console.debug(
     `Creating entity serverId:${e.id} (${e.name}) with comps:`,
     comps
@@ -133,7 +187,7 @@ export function readEntity(
   // xform
   if (xformNode) {
     if (comps.xform) {
-      const xformComp = comps.xform as XformSyncData;
+      const xformComp = deserializeXformSyncData(comps.xform as number[]);
       xformNode.position.copyFrom(xformComp.pos);
       xformNode.rotationQuaternion = new Quaternion().copyFrom(xformComp.quat);
       if (xformNode.physicsBody) {
@@ -173,7 +227,7 @@ export function readCreateEntities(
   const entities = data as Array<{
     id: number;
     name: string;
-    comps: Array<{ k: string; v?: unknown }>;
+    comps: Record<string, unknown>;
   }>;
   entities
     .filter((e) => !idMap.has(e.id)) // skip existing entitites

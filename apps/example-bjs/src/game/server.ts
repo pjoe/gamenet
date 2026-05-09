@@ -88,16 +88,26 @@ export async function setupBabylonServer() {
       });
 
       // each tick, update player positions based on input and broadcast entity states
+      let logTime = 0;
       scene.onBeforeRenderObservable.add(() => {
-        //const dt = engine.getTimeStep() / 1000; // seconds
+        const dt = engine.getTimeStep() / 1000; // seconds
+        logTime += dt;
         for (const [clientId, input] of playerInputs) {
           // if (input.dx === 0 && input.dz === 0) continue;
           const node = playerNodes.get(clientId);
           processPlayerInput(node, input);
         }
+        const entities = writeCreateEntities(componentSerdes, true);
+        if (logTime >= 20) {
+          // console.debug(
+          //   `Broadcasting ${entities.length} entities to clients...`,
+          //   JSON.stringify(entities)
+          // );
+          logTime = 0;
+        }
         gameServer.broadcast("update-entities", {
           time: Date.now(),
-          entities: writeCreateEntities(componentSerdes, true),
+          entities,
         });
       });
 
