@@ -20,6 +20,11 @@ function Game() {
     () => session?.gameClient.extraLatency ?? 0
   );
   const { stats, recordMessage, reset: resetStats } = useDebugStats();
+  const {
+    stats: serverStats,
+    recordMessage: recordServerMessage,
+    reset: resetServerStats,
+  } = useDebugStats();
 
   useEffect(() => {
     if (!session) return;
@@ -29,6 +34,10 @@ function Game() {
 
     gameClient.onMessageStats((e) => {
       if (active) recordMessage(e.type, e.bytes);
+    });
+
+    const unsubServerStats = session.onServerMessageStats?.((e) => {
+      if (active) recordServerMessage(e.type, e.bytes);
     });
 
     gameClient.onDisconnected(() => {
@@ -44,8 +53,9 @@ function Game() {
 
     return () => {
       active = false;
+      unsubServerStats?.();
     };
-  }, [session, endSession, navigate, recordMessage]);
+  }, [session, endSession, navigate, recordMessage, recordServerMessage]);
 
   const handleExtraLatencyChange = useCallback(
     (value: number) => {
@@ -84,7 +94,12 @@ function Game() {
         onExtraLatencyChange={handleExtraLatencyChange}
         onLeaveGame={handleLeaveGame}
       />
-      <DebugPanel stats={stats} onReset={resetStats} />
+      <DebugPanel
+        stats={stats}
+        onReset={resetStats}
+        serverStats={isHost ? serverStats : undefined}
+        onServerReset={isHost ? resetServerStats : undefined}
+      />
     </div>
   );
 }

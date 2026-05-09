@@ -8,6 +8,7 @@ import {
   joinGame,
   Message,
   MessageEnvelope,
+  MessageStatsEvent,
   Router,
 } from "@gamenet/core";
 
@@ -168,6 +169,15 @@ export async function setupHosting(args: { nickname: string; worker: Worker }) {
   workerAdapter.clientIds.add(WORKER_SERVER_ID);
   router.registerAdapter(workerAdapter);
 
+  const serverStatsHandlers = new Set<(event: MessageStatsEvent) => void>();
+  workerAdapter.onMessageStats = (event) => {
+    const stats: MessageStatsEvent = {
+      type: event.type,
+      bytes: event.bytes,
+    };
+    serverStatsHandlers.forEach((handler) => handler(stats));
+  };
+
   // Send __init to worker with serverId (must happen before joinGame
   // so the worker is ready to handle __client_connected)
   const initMessage: Message = {
@@ -248,6 +258,12 @@ export async function setupHosting(args: { nickname: string; worker: Worker }) {
   return {
     gameClient: hostClient,
     serverId,
+    onServerMessageStats(handler: (event: MessageStatsEvent) => void) {
+      serverStatsHandlers.add(handler);
+      return () => {
+        serverStatsHandlers.delete(handler);
+      };
+    },
     dispose() {
       router.adapters.delete(workerAdapter.id);
       args.worker.terminate();

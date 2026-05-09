@@ -26,12 +26,29 @@ function decodeClientConnectPayload(data: ArrayBuffer): { nickname?: string } {
   return {};
 }
 
+export interface WorkerMessageStatsEvent {
+  type: string;
+  bytes: number;
+  /** "in" = main → worker (server inbound), "out" = worker → main (server outbound) */
+  direction: "in" | "out";
+}
+
 export interface WorkerAdapter extends Adapter {
   worker: Worker;
+  /**
+   * Optional handler invoked for every game message crossing the worker
+   * boundary in either direction. Control messages (prefixed with `__`)
+   * are skipped.
+   */
+  onMessageStats?: (event: WorkerMessageStatsEvent) => void;
+}
+
+function isControlMessageType(type: string): boolean {
+  return type.startsWith("__");
 }
 
 // create adapter that handles clients in a web worker
-export function createWorkerAdapter(id: string, worker: Worker): Adapter {
+export function createWorkerAdapter(id: string, worker: Worker): WorkerAdapter {
   const adapter: WorkerAdapter = {
     id,
     worker,
@@ -39,6 +56,14 @@ export function createWorkerAdapter(id: string, worker: Worker): Adapter {
     receiveMessage(message) {
       // handle message from router
       this.onReceiveMessage?.(message);
+      // capture byteLength before postMessage transfers ownership
+      if (this.onMessageStats && !isControlMessageType(message.type)) {
+        this.onMessageStats({
+          type: message.type,
+          bytes: message.data.byteLength,
+          direction: "in",
+        });
+      }
       // post to the worker
       this.worker.postMessage(message, [message.data]);
     },
@@ -50,6 +75,13 @@ export function createWorkerAdapter(id: string, worker: Worker): Adapter {
   };
   worker.onmessage = (event) => {
     const message: Message = event.data;
+    if (adapter.onMessageStats && !isControlMessageType(message.type)) {
+      adapter.onMessageStats({
+        type: message.type,
+        bytes: message.data.byteLength,
+        direction: "out",
+      });
+    }
     // handle message from worker
     adapter.emitMessage(message);
   };

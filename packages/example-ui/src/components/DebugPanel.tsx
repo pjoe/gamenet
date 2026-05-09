@@ -14,18 +14,129 @@ function formatRate(perSec: number): string {
   return Math.round(perSec).toString();
 }
 
-function DebugPanel({
+type Tab = "client" | "server";
+
+function StatsView({
   stats,
   onReset,
 }: {
   stats: DebugStats;
   onReset?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   const sortedTypes = [...stats.perType.entries()].sort(
     ([, a], [, b]) => b.count - a.count
   );
+
+  return (
+    <div className="space-y-2">
+      {onReset && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onReset}
+            className="text-xs px-2 py-0.5 rounded border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors duration-200"
+          >
+            Reset
+          </button>
+        </div>
+      )}
+
+      {/* Summary stats */}
+      <Card padding="xs">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+          <div className="text-[var(--color-text-secondary)]">Messages</div>
+          <div className="text-right font-mono text-[var(--color-text-primary)]">
+            {stats.totalMessages.toLocaleString()}
+          </div>
+
+          <div className="text-[var(--color-text-secondary)]">Total bytes</div>
+          <div className="text-right font-mono text-[var(--color-text-primary)]">
+            {formatBytes(stats.totalBytes)}
+          </div>
+
+          <div className="text-[var(--color-text-secondary)]">Avg size</div>
+          <div className="text-right font-mono text-[var(--color-accent-blue)]">
+            {formatBytes(stats.avgMessageBytes)}
+          </div>
+
+          <div className="text-[var(--color-text-secondary)]">Msgs/sec</div>
+          <div className="text-right font-mono text-[var(--color-text-primary)]">
+            {formatRate(stats.messagesPerSec)}
+          </div>
+
+          <div className="text-[var(--color-text-secondary)]">Bytes/sec</div>
+          <div className="text-right font-mono text-[var(--color-text-primary)]">
+            {formatBytes(stats.bytesPerSec)}/s
+          </div>
+        </div>
+      </Card>
+
+      {/* Per-type breakdown */}
+      {sortedTypes.length > 0 && (
+        <Card padding="xs">
+          <h4 className="text-xs font-semibold text-[var(--color-text-secondary)] mb-1">
+            Per Message Type
+          </h4>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-[var(--color-text-secondary)] border-b border-[var(--color-border)]">
+                  <th className="text-left py-0.5 pr-2 font-medium">Type</th>
+                  <th className="text-right py-0.5 px-1 font-medium">#</th>
+                  <th className="text-right py-0.5 px-1 font-medium">Avg</th>
+                  <th className="text-right py-0.5 px-1 font-medium">Total</th>
+                  <th className="text-right py-0.5 pl-1 font-medium">/sec</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedTypes.map(([type, typeStats]) => (
+                  <tr
+                    key={type}
+                    className="border-b border-[var(--color-border)]/30"
+                  >
+                    <td className="py-0.5 pr-2 font-mono text-[var(--color-accent-blue)] truncate max-w-[7rem]">
+                      {type}
+                    </td>
+                    <td className="py-0.5 px-1 text-right font-mono text-[var(--color-text-primary)]">
+                      {typeStats.count.toLocaleString()}
+                    </td>
+                    <td className="py-0.5 px-1 text-right font-mono text-[var(--color-text-primary)]">
+                      {formatBytes(typeStats.avgBytes)}
+                    </td>
+                    <td className="py-0.5 px-1 text-right font-mono text-[var(--color-text-primary)]">
+                      {formatBytes(typeStats.totalBytes)}
+                    </td>
+                    <td className="py-0.5 pl-1 text-right font-mono text-[var(--color-text-primary)]">
+                      {formatRate(typeStats.msgsPerSec)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function DebugPanel({
+  stats,
+  onReset,
+  serverStats,
+  onServerReset,
+}: {
+  stats: DebugStats;
+  onReset?: () => void;
+  /** When provided, a Server tab is shown alongside Client. */
+  serverStats?: DebugStats;
+  onServerReset?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("client");
+
+  const hasServer = !!serverStats;
+  const activeTab: Tab = hasServer ? tab : "client";
 
   return (
     <>
@@ -61,111 +172,43 @@ function DebugPanel({
               <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
                 Network Debug
               </h3>
-              {onReset && (
-                <button
-                  type="button"
-                  onClick={onReset}
-                  className="text-xs px-2 py-0.5 rounded border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors duration-200"
-                >
-                  Reset
-                </button>
-              )}
             </div>
 
-            {/* Summary stats */}
-            <Card padding="xs">
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                <div className="text-[var(--color-text-secondary)]">
-                  Messages
-                </div>
-                <div className="text-right font-mono text-[var(--color-text-primary)]">
-                  {stats.totalMessages.toLocaleString()}
-                </div>
-
-                <div className="text-[var(--color-text-secondary)]">
-                  Total bytes
-                </div>
-                <div className="text-right font-mono text-[var(--color-text-primary)]">
-                  {formatBytes(stats.totalBytes)}
-                </div>
-
-                <div className="text-[var(--color-text-secondary)]">
-                  Avg size
-                </div>
-                <div className="text-right font-mono text-[var(--color-accent-blue)]">
-                  {formatBytes(stats.avgMessageBytes)}
-                </div>
-
-                <div className="text-[var(--color-text-secondary)]">
-                  Msgs/sec
-                </div>
-                <div className="text-right font-mono text-[var(--color-text-primary)]">
-                  {formatRate(stats.messagesPerSec)}
-                </div>
-
-                <div className="text-[var(--color-text-secondary)]">
-                  Bytes/sec
-                </div>
-                <div className="text-right font-mono text-[var(--color-text-primary)]">
-                  {formatBytes(stats.bytesPerSec)}/s
-                </div>
+            {/* Tabs (only when hosting) */}
+            {hasServer && (
+              <div
+                className="flex gap-1 border-b border-[var(--color-border)]"
+                role="tablist"
+              >
+                {(["client", "server"] as Tab[]).map((t) => {
+                  const isActive = activeTab === t;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => setTab(t)}
+                      className={`px-3 py-1 text-xs font-medium border-b-2 -mb-px transition-colors duration-200 ${
+                        isActive
+                          ? "border-[var(--color-accent-blue)] text-[var(--color-text-primary)]"
+                          : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                      }`}
+                    >
+                      {t === "client" ? "Client" : "Server"}
+                    </button>
+                  );
+                })}
               </div>
-            </Card>
+            )}
 
-            {/* Per-type breakdown */}
-            {sortedTypes.length > 0 && (
-              <Card padding="xs">
-                <h4 className="text-xs font-semibold text-[var(--color-text-secondary)] mb-1">
-                  Per Message Type
-                </h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-[var(--color-text-secondary)] border-b border-[var(--color-border)]">
-                        <th className="text-left py-0.5 pr-2 font-medium">
-                          Type
-                        </th>
-                        <th className="text-right py-0.5 px-1 font-medium">
-                          #
-                        </th>
-                        <th className="text-right py-0.5 px-1 font-medium">
-                          Avg
-                        </th>
-                        <th className="text-right py-0.5 px-1 font-medium">
-                          Total
-                        </th>
-                        <th className="text-right py-0.5 pl-1 font-medium">
-                          /sec
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedTypes.map(([type, typeStats]) => (
-                        <tr
-                          key={type}
-                          className="border-b border-[var(--color-border)]/30"
-                        >
-                          <td className="py-0.5 pr-2 font-mono text-[var(--color-accent-blue)] truncate max-w-[7rem]">
-                            {type}
-                          </td>
-                          <td className="py-0.5 px-1 text-right font-mono text-[var(--color-text-primary)]">
-                            {typeStats.count.toLocaleString()}
-                          </td>
-                          <td className="py-0.5 px-1 text-right font-mono text-[var(--color-text-primary)]">
-                            {formatBytes(typeStats.avgBytes)}
-                          </td>
-                          <td className="py-0.5 px-1 text-right font-mono text-[var(--color-text-primary)]">
-                            {formatBytes(typeStats.totalBytes)}
-                          </td>
-                          <td className="py-0.5 pl-1 text-right font-mono text-[var(--color-text-primary)]">
-                            {formatRate(typeStats.msgsPerSec)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
+            {activeTab === "client" ? (
+              <StatsView stats={stats} onReset={onReset} />
+            ) : (
+              <StatsView
+                stats={serverStats as DebugStats}
+                onReset={onServerReset}
+              />
             )}
           </div>
         </div>

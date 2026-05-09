@@ -29,15 +29,17 @@ function Host() {
 
     setIsStarting(true);
     const worker = createWorkerServerWorker();
-    const { serverId, gameClient, dispose } = await setupHosting({
-      nickname: normalizedNickname,
-      worker,
-    });
+    const { serverId, gameClient, dispose, onServerMessageStats } =
+      await setupHosting({
+        nickname: normalizedNickname,
+        worker,
+      });
 
     startSession({
       gameClient,
       serverId,
       isHost: true,
+      onServerMessageStats,
       dispose,
     });
     navigate("/game");

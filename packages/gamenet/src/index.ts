@@ -51,3 +51,7 @@ export { createServerWebRTCAdapterManager } from "./routing/adapter_webrtc";
 export type { Message } from "./routing/message";
 export { createRouter } from "./routing/router";
 export type { Router } from "./routing/router";
+export type {
+  WorkerAdapter,
+  WorkerMessageStatsEvent,
+} from "./routing/worker_adapter";

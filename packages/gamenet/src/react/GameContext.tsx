@@ -1,11 +1,19 @@
 import { createContext, useContext, useRef, useState } from "react";
-import type { GameClient } from "../game_client";
+import type { GameClient, MessageStatsEvent } from "../game_client";
 
 export interface GameSession {
   gameClient: GameClient;
   serverId: string;
   isHost: boolean;
   pendingMessages: { type: string; data: unknown }[];
+  /**
+   * When hosting, lets consumers subscribe to message stats for the game
+   * server (typically running in a Web Worker). Returns an unsubscribe fn.
+   * Only set on host sessions; undefined for joining clients.
+   */
+  onServerMessageStats?: (
+    handler: (event: MessageStatsEvent) => void
+  ) => () => void;
   dispose: () => void;
 }
 

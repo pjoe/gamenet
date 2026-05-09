@@ -3,6 +3,7 @@ import type {
   ClientAdapterSession,
   Message,
   MessageEnvelope,
+  MessageStatsEvent,
   Router,
 } from "@gamenet/core";
 import {
@@ -198,6 +199,15 @@ function Host() {
     workerAdapter.clientIds.add(WORKER_SERVER_ID);
     router.registerAdapter(workerAdapter);
 
+    const serverStatsHandlers = new Set<(event: MessageStatsEvent) => void>();
+    workerAdapter.onMessageStats = (event) => {
+      const stats: MessageStatsEvent = {
+        type: event.type,
+        bytes: event.bytes,
+      };
+      serverStatsHandlers.forEach((handler) => handler(stats));
+    };
+
     // Send __init to worker with serverId (must happen before joinGame
     // so the worker is ready to handle __client_connected)
     const initMessage: Message = {
@@ -279,6 +289,12 @@ function Host() {
       gameClient: hostClient,
       serverId,
       isHost: true,
+      onServerMessageStats: (handler) => {
+        serverStatsHandlers.add(handler);
+        return () => {
+          serverStatsHandlers.delete(handler);
+        };
+      },
       dispose() {
         hostClient.dispose();
         manager.dispose();
