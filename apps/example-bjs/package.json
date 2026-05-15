@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@babylonjs/core": "^8.56.2",
+    "@babylonjs/core": "^9.7.0",
     "@babylonjs/havok": "^1.3.12",
-    "@babylonjs/inspector": "^8.56.2",
+    "@babylonjs/inspector": "^9.7.0",
     "@gamenet/bjs": "workspace:*",
     "@gamenet/core": "workspace:*",
     "@gamenet/example-ui": "workspace:*",

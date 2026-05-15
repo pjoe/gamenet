@@ -19,10 +19,10 @@
     "dev": "vite build --watch"
   },
   "peerDependencies": {
-    "@babylonjs/core": "^8.0.0",
-    "@babylonjs/inspector": "^8.0.0",
+    "@babylonjs/core": "^9.7.0",
+    "@babylonjs/inspector": "^9.7.0",
     "@gamenet/core": "workspace:*",
-    "@skyboxgg/bjs-ecs": "^0.4.0"
+    "@skyboxgg/bjs-ecs": "^0.4.1"
   },
   "peerDependenciesMeta": {
     "@babylonjs/inspector": {
@@ -30,8 +30,8 @@
     }
   },
   "devDependencies": {
-    "@babylonjs/core": "^8.56.2",
-    "@babylonjs/inspector": "^8.56.2",
+    "@babylonjs/core": "^9.7.0",
+    "@babylonjs/inspector": "^9.7.0",
     "@gamenet/core": "workspace:*",
     "@skyboxgg/bjs-ecs": "^0.4.1",
     "typescript": "^6.0.2",
