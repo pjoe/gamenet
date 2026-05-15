@@ -30,7 +30,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm run build
+        run: pnpm run build:lib
 
       - name: Publish @gamenet/core
         working-directory: packages/gamenet
