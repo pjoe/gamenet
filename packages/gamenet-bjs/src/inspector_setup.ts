@@ -1,36 +1,52 @@
 import { Scene } from "@babylonjs/core/scene";
 
-let inspectorImported = false;
 let inspectorLoading = false;
+let inspectorModulePromise: Promise<unknown> | undefined;
+
+function showLoadingModal() {
+  const modal = document.createElement("div");
+  modal.innerHTML = "Loading inspector ...";
+  modal.style.position = "absolute";
+  modal.style.top = "0";
+  modal.style.backgroundColor = "rgba(255,255,255,0.5)";
+  document.body.append(modal);
+  return modal;
+}
+
+async function loadInspectorModule() {
+  if (inspectorModulePromise) {
+    return inspectorModulePromise;
+  }
+
+  const modal = showLoadingModal();
+  inspectorModulePromise = import("./inspector_loader").finally(() => {
+    modal.remove();
+  });
+
+  return inspectorModulePromise;
+}
 
 export async function showInspector(show: boolean, scene: Scene) {
   console.info("showInspector", show);
-  if (inspectorLoading) {
-    return;
-  }
-  if (!inspectorImported) {
-    inspectorLoading = true;
-    console.debug("importing inspector");
-    const modal = document.createElement("div");
-    modal.innerHTML = "Loading inspector ...";
-    modal.style.position = "absolute";
-    modal.style.top = "0";
-    modal.style.backgroundColor = "rgba(255,255,255,0.5)";
-    document.body.append(modal);
-    // await import('@babylonjs/core/Debug/debugLayer');
-    const inspectorModule = await import("@babylonjs/inspector");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (scene.debugLayer as any).BJSINSPECTOR = inspectorModule;
-    inspectorLoading = false;
-    inspectorImported = true;
-    modal.remove();
-  }
+
   if (show) {
-    void scene.debugLayer.show({
-      globalRoot: document.body,
-      overlay: true,
-      embedMode: true,
-    });
+    if (inspectorLoading) {
+      return;
+    }
+
+    inspectorLoading = true;
+    try {
+      console.debug("importing inspector");
+      await loadInspectorModule();
+
+      await scene.debugLayer.show({
+        globalRoot: document.body,
+        overlay: true,
+        embedMode: true,
+      });
+    } finally {
+      inspectorLoading = false;
+    }
   } else {
     scene.debugLayer.hide();
   }
@@ -47,9 +63,9 @@ export function setupInspector(scene: Scene) {
       !event.metaKey
     ) {
       if (scene.debugLayer?.isVisible()) {
-        showInspector(false, scene);
+        void showInspector(false, scene);
       } else {
-        showInspector(true, scene);
+        void showInspector(true, scene);
       }
     }
   });

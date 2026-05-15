@@ -1,0 +1,3 @@
+import "@babylonjs/inspector";
+
+export { };
