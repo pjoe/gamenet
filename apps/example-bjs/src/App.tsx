@@ -1,10 +1,12 @@
 import { useGame } from "@gamenet/core/react";
 import { ThemeToggle } from "@gamenet/example-ui";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
-import Game from "./pages/Game";
 import Home from "./pages/Home";
-import Host from "./pages/Host";
-import Join from "./pages/Join";
+
+const Game = lazy(() => import("./pages/Game"));
+const Host = lazy(() => import("./pages/Host"));
+const Join = lazy(() => import("./pages/Join"));
 
 const navLinkClassName = ({ isActive }: { isActive: boolean }) =>
   `inline-flex items-center px-1 pt-1 text-sm font-medium text-[var(--color-text-primary)] border-b-4 transition-colors duration-200 ${
@@ -46,12 +48,20 @@ function App() {
         </nav>
 
         <main>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/host" element={<Host />} />
-            <Route path="/join" element={<Join />} />
-            <Route path="/game" element={<Game />} />
-          </Routes>
+          <Suspense
+            fallback={
+              <div className="p-6 text-center text-[var(--color-text-secondary)]">
+                Loading...
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/host" element={<Host />} />
+              <Route path="/join" element={<Join />} />
+              <Route path="/game" element={<Game />} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
     </BrowserRouter>

@@ -4,55 +4,73 @@ import { defineConfig } from "vite";
 import wasm from "vite-plugin-wasm";
 import { createWorkspaceAliases } from "../../vite.workspace-aliases";
 
-const inspectorLoaderId = "/packages/gamenet-bjs/src/inspector_loader.ts";
+const viteIdPrefix = "/@id/";
+const viteFsPrefix = "/@fs/";
 
-function normalizeModuleId(id: string) {
-  return id.replaceAll("\\", "/");
+function stripVitePrefixes(id: string) {
+  if (id.startsWith(viteIdPrefix)) {
+    return id.slice(viteIdPrefix.length);
+  }
+
+  if (id.startsWith(viteFsPrefix)) {
+    return id.slice(viteFsPrefix.length);
+  }
+
+  return id;
 }
 
-function isInspectorOnlyModule(
-  id: string,
-  getModuleInfo: (id: string) => { importers: string[]; dynamicImporters: string[] } | null,
-  seen = new Set<string>()
-): boolean {
+function matchesPackageModule(id: string, packageName: string) {
+  return (
+    id === packageName ||
+    id.startsWith(`${packageName}/`) ||
+    id.includes(`/node_modules/${packageName}/`) ||
+    id.includes(`:${packageName}`)
+  );
+}
+
+function normalizeModuleId(id: string) {
+  return stripVitePrefixes(
+    id.replaceAll("\\", "/").replaceAll("\0", "").split("?")[0]
+  );
+}
+
+function isReactVendorChunkModule(id: string): boolean {
   const normalizedId = normalizeModuleId(id);
 
-  if (seen.has(normalizedId)) {
-    return true;
-  }
-  seen.add(normalizedId);
-
-  if (normalizedId.includes(inspectorLoaderId)) {
-    return true;
-  }
-  if (!normalizedId.includes("/node_modules/")) {
-    return false;
-  }
-
-  const moduleInfo = getModuleInfo(id);
-  if (!moduleInfo) {
-    return false;
-  }
-
-  const parents = [...moduleInfo.importers, ...moduleInfo.dynamicImporters];
-  if (parents.length === 0) {
-    return false;
-  }
-
-  return parents.every((parentId) =>
-    isInspectorOnlyModule(parentId, getModuleInfo, seen)
+  return (
+    matchesPackageModule(normalizedId, "react") ||
+    matchesPackageModule(normalizedId, "react-dom") ||
+    matchesPackageModule(normalizedId, "react-router") ||
+    matchesPackageModule(normalizedId, "react-router-dom") ||
+    matchesPackageModule(normalizedId, "scheduler")
   );
+}
+
+function getManualChunkName(id: string) {
+  if (isReactVendorChunkModule(id)) {
+    return "react-vendor";
+  }
+
+  return undefined;
 }
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   base: mode === "production" ? "/gamenet/" : "/",
   build: {
+    emptyOutDir: true,
     rollupOptions: {
+      preserveEntrySignatures: "allow-extension",
       output: {
-        manualChunks(id, { getModuleInfo }) {
-          if (isInspectorOnlyModule(id, getModuleInfo)) {
-            return "babylon-inspector";
-          }
+        strictExecutionOrder: true,
+        codeSplitting: {
+          includeDependenciesRecursively: false,
+          groups: [
+            {
+              name(id) {
+                return getManualChunkName(id);
+              },
+            },
+          ],
         },
       },
     },
@@ -60,7 +78,12 @@ export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: createWorkspaceAliases(__dirname),
-    dedupe: ["react", "react-dom", "react/jsx-runtime"],
+    dedupe: [
+      "react",
+      "react-dom",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+    ],
   },
   worker: {
     format: "es",
