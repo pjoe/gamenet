@@ -3,7 +3,9 @@ import { SignalServer } from "./signal_server";
 
 export function createMqttSignalServer(
   brokerUrl: string,
-  topicPrefix = "pjoe.gamenet/"
+  topicPrefix = "pjoe.gamenet/",
+  username?: string,
+  password?: string
 ): SignalServer {
   let client: mqtt.MqttClient | null = null;
   let currentTopic: string | null = null;
@@ -18,6 +20,8 @@ export function createMqttSignalServer(
       console.debug("Connecting to MQTT broker at:", brokerUrl);
       client = mqtt.connect(brokerUrl, {
         reconnectPeriod: 5000,
+        username,
+        password,
       });
 
       client.on("error", (err) => {
