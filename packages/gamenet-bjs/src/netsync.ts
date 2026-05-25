@@ -212,7 +212,8 @@ export function readEntity(
           (comps.xform as XformSyncData | undefined)?.teleportTime ?? 0,
       })
     );
-    const entity = addNodeEntity(xformNode, compsToAdd);
+    const entity =
+      xformNode.metadata.entity ?? addNodeEntity(xformNode, compsToAdd);
     idMap.set(Number(e.id), entity);
   }
 }
