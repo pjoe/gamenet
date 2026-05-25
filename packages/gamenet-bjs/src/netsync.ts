@@ -213,7 +213,7 @@ export function readEntity(
       })
     );
     const entity =
-      xformNode.metadata.entity ?? addNodeEntity(xformNode, compsToAdd);
+      xformNode?.metadata?.entity ?? addNodeEntity(xformNode, compsToAdd);
     idMap.set(Number(e.id), entity);
   }
 }
