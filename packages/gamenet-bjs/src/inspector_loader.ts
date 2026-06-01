@@ -1,3 +1,3 @@
 import "@babylonjs/inspector";
 
-export { };
+export {};
