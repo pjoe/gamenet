@@ -58,22 +58,6 @@ export default defineConfig(({ mode }) => ({
   base: mode === "production" ? "/gamenet/" : "/",
   build: {
     emptyOutDir: true,
-    rollupOptions: {
-      preserveEntrySignatures: "allow-extension",
-      output: {
-        strictExecutionOrder: true,
-        codeSplitting: {
-          includeDependenciesRecursively: false,
-          groups: [
-            {
-              name(id) {
-                return getManualChunkName(id);
-              },
-            },
-          ],
-        },
-      },
-    },
   },
   plugins: [react(), tailwindcss()],
   resolve: {

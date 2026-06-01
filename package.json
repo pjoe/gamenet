@@ -57,6 +57,9 @@
       "allowAny": [
         "typescript"
       ]
-    }
+    },
+    "ignoredBuiltDependencies": [
+      "cbor-extract"
+    ]
   }
 }

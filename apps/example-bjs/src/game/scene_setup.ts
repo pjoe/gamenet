@@ -13,6 +13,7 @@ import HavokInit from "../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.
 import { setupPlayerCamera } from "./player/player_camera_setup";
 // Side-effect imports
 import "@babylonjs/core/Materials/standardMaterial";
+import "@babylonjs/core/Physics/joinedPhysicsEngineComponent";
 import "@babylonjs/core/Physics/v2/physicsEngineComponent";
 import { addNodeEntity } from "@skyboxgg/bjs-ecs";
 import { setupLevel } from "./level_setup";
@@ -43,7 +44,8 @@ export async function setupScene(scene: Scene, isServer = false) {
     // Physics
     const havokInstance = await HavokPhysics();
     const havokPlugin = new HavokPlugin(true, havokInstance);
-    scene.enablePhysics(new Vector3(0, -9.8, 0), havokPlugin);
+    const physRes = scene.enablePhysics(new Vector3(0, -9.8, 0), havokPlugin);
+    console.debug("[CLIENT] Havok physics enabled in the scene:", physRes);
     // scene
     //   .getPhysicsEngine()
     //   ?.setTimeStep(scene.getEngine().getTimeStep() / 1000);
