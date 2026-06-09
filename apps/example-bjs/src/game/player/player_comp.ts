@@ -17,4 +17,8 @@ export const player = createComponent(
 
 const playerNetSyncKeys = ["id", "nickname", "color"] as const;
 
-export const playerSerde = genericSerde(player, playerNetSyncKeys, setupPlayer);
+export const playerSerde = genericSerde({
+  compType: player,
+  keys: playerNetSyncKeys,
+  setupNode: setupPlayer,
+});

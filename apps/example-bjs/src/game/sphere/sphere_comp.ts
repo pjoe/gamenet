@@ -22,4 +22,8 @@ const sphereNetSyncKeys = [
   "specularColor",
 ] as const;
 
-export const sphereSerde = genericSerde(sphere, sphereNetSyncKeys, setupSphere);
+export const sphereSerde = genericSerde({
+  compType: sphere,
+  keys: sphereNetSyncKeys,
+  setupNode: setupSphere,
+});

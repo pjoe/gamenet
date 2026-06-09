@@ -12,6 +12,12 @@ import {
 } from "@skyboxgg/bjs-ecs";
 import { ComponentSerde } from "./serde";
 
+export type SerializedEntity = {
+  id: number;
+  name?: string;
+  [key: string]: unknown;
+};
+export type EntitiesSync = SerializedEntity[];
 export type XformSyncData = {
   pos: Vector3;
   quat: Quaternion;
@@ -90,11 +96,6 @@ export function markXformTeleport(
   (node.metadata as { teleportTime?: number }).teleportTime = time;
 }
 
-type SerializedEntity = {
-  id: number;
-  name?: string;
-  [key: string]: unknown;
-};
 export function writeEntity(
   e: Entity<["netsync"]>,
   registry: Record<string, ComponentSerde>,
@@ -138,7 +139,6 @@ export function writeEntity(
   return { id: e.id, name, ...comps };
 }
 
-export type EntitiesSync = ReturnType<typeof writeEntity>[];
 export function writeCreateEntities(
   registry: Record<string, ComponentSerde>,
   isUpdate = false
@@ -225,11 +225,7 @@ export function readCreateEntities(
   registry: Record<string, ComponentSerde>,
   scene: Scene
 ) {
-  const entities = data as Array<{
-    id: number;
-    name: string;
-    comps: Record<string, unknown>;
-  }>;
+  const entities = data as SerializedEntity[];
   entities
     .filter((e) => !idMap.has(e.id)) // skip existing entitites
     .forEach((e) => readEntity(gameClient, e, idMap, registry, scene));
