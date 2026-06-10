@@ -71,7 +71,7 @@ export const xformSync = createComponent(
  * State fields used by the xform serde. `vault` and `renderTime` are only
  * needed client-side for `applyUpdate` (reconciliation against snapshots).
  */
-export interface XformSerdeState extends NetsyncState {
+export interface XformSerdeState extends NetsyncState<TransformNode> {
   /** Client-side snapshot vault; required for `applyUpdate`. */
   vault?: SnapshotVault;
   /** Render time (server-time ms) used for vault lookup in `applyUpdate`. */

@@ -1,3 +1,4 @@
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { SnapshotVault } from "@gamenet/core";
 import {
   addNodeEntity,
@@ -15,7 +16,10 @@ export type SerializedEntity = {
 };
 export type EntitiesSync = SerializedEntity[];
 
-export function writeEntity<TState extends NetsyncState>(
+/** Netsync state bound to Babylon.js scene nodes. */
+export type BjsNetsyncState = NetsyncState<TransformNode>;
+
+export function writeEntity<TState extends BjsNetsyncState>(
   e: Entity<["netsync"]>,
   registry: Record<string, ComponentSerde<TState>>,
   state: TState,
@@ -52,7 +56,7 @@ export function writeEntity<TState extends NetsyncState>(
   return { id: e.id, name, ...comps };
 }
 
-export function writeCreateEntities<TState extends NetsyncState>(
+export function writeCreateEntities<TState extends BjsNetsyncState>(
   registry: Record<string, ComponentSerde<TState>>,
   state: TState
 ): EntitiesSync {
@@ -60,7 +64,7 @@ export function writeCreateEntities<TState extends NetsyncState>(
   return entities.map((e) => writeEntity(e, registry, state));
 }
 
-export function writeUpdateEntities<TState extends NetsyncState>(
+export function writeUpdateEntities<TState extends BjsNetsyncState>(
   registry: Record<string, ComponentSerde<TState>>,
   state: TState
 ): EntitiesSync {
@@ -70,7 +74,7 @@ export function writeUpdateEntities<TState extends NetsyncState>(
 
 export type ServerEntityIdMap = Map<number, Entity<["netsync"]>>;
 
-export function readEntity<TState extends NetsyncState>(
+export function readEntity<TState extends BjsNetsyncState>(
   e: SerializedEntity,
   idMap: ServerEntityIdMap,
   registry: Record<string, ComponentSerde<TState>>,
@@ -99,14 +103,8 @@ export function readEntity<TState extends NetsyncState>(
           : 1
     )) {
     if (val) {
-      const { comps: newComps, node } = registry[key].deserialize(
-        val,
-        entityState
-      );
+      const { comps: newComps } = registry[key].deserialize(val, entityState);
       compsToAdd.push(...newComps);
-      if (node) {
-        entityState.node = node;
-      }
     }
   }
 
@@ -118,7 +116,7 @@ export function readEntity<TState extends NetsyncState>(
   }
 }
 
-export function readCreateEntities<TState extends NetsyncState>(
+export function readCreateEntities<TState extends BjsNetsyncState>(
   data: unknown,
   idMap: ServerEntityIdMap,
   registry: Record<string, ComponentSerde<TState>>,
@@ -130,7 +128,7 @@ export function readCreateEntities<TState extends NetsyncState>(
     .forEach((e) => readEntity(e, idMap, registry, state));
 }
 
-export function readUpdateEntities<TState extends NetsyncState>(
+export function readUpdateEntities<TState extends BjsNetsyncState>(
   entities: EntitiesSync,
   idMap: ServerEntityIdMap,
   registry: Record<string, ComponentSerde<TState>>,
@@ -158,7 +156,7 @@ export function readUpdateEntities<TState extends NetsyncState>(
  * Push snapshots for all netsync entities into the vault, using each
  * registered serde's `captureSnapshot` hook (keyed by component name).
  */
-export function captureSnapshots<TState extends NetsyncState>(
+export function captureSnapshots<TState extends BjsNetsyncState>(
   registry: Record<string, ComponentSerde<TState>>,
   vault: SnapshotVault,
   state: TState,

@@ -1,49 +1,48 @@
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Comp, Entity } from "@skyboxgg/bjs-ecs";
 
 /**
  * Base state threaded through all serde hooks.
  *
  * The netsync read/write helpers populate `entity` and `node` per entity
- * before invoking serde hooks. Apps extend this with their own fields
+ * before invoking serde hooks. `TNode` is the engine-specific scene-node
+ * type (e.g. Babylon's `TransformNode`), keeping this core type free of
+ * any engine dependency. Apps extend this with their own fields
  * (scene, snapshot vault, client id, ...) and parametrize their serdes
  * with the extended type.
  */
-export interface NetsyncState {
+export interface NetsyncState<TNode = unknown> {
   /** Entity currently being (de)serialized, when available. */
   entity: Entity<["netsync"]> | null;
-  /** Transform node of the entity currently being (de)serialized, when available. */
-  node: TransformNode | null;
+  /** Scene node of the entity currently being (de)serialized, when available. */
+  node: TNode | null;
 }
 
 export interface ComponentSerde<TState extends NetsyncState = NetsyncState> {
   /** True when `deserialize` may create a node. Node-creating serdes run first. */
   createsNode?: boolean;
   /** Full payload used when creating an entity. */
-  serialize: (comp: true | Comp, state: TState) => unknown;
+  serialize(comp: true | Comp, state: TState): unknown;
   /**
-   * Recreate component(s) from a create payload. May create a node, which
-   * becomes `state.node` for subsequently deserialized components.
+   * Recreate component(s) from a create payload. A node-creating serde
+   * must assign the created node to `state.node`, making it available to
+   * subsequently deserialized components and to the caller.
    */
-  deserialize: (
-    data: unknown,
-    state: TState
-  ) => { comps: (Comp | string)[]; node?: TransformNode | null };
+  deserialize(data: unknown, state: TState): { comps: (Comp | string)[] };
   /**
    * Per-tick update payload. When absent, the component is not included
    * in update sync messages.
    */
-  serializeUpdate?: (comp: true | Comp, state: TState) => unknown;
+  serializeUpdate?(comp: true | Comp, state: TState): unknown;
   /** Apply a per-tick update payload on the client. */
-  applyUpdate?: (data: unknown, state: TState) => void;
+  applyUpdate?(data: unknown, state: TState): void;
   /**
    * Snapshot values for the client snapshot vault. When absent, the
    * component is not snapshotted.
    */
-  captureSnapshot?: (
+  captureSnapshot?(
     comp: true | Comp,
     state: TState
-  ) => Record<string, unknown> | undefined;
+  ): Record<string, unknown> | undefined;
 }
 
 export const genericSerde = <
@@ -53,10 +52,7 @@ export const genericSerde = <
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   compType: (options: any) => T;
   keys: readonly string[];
-  setupNode?: (
-    options: T["value"],
-    state: TState
-  ) => { node: TransformNode | null };
+  setupNode?: (options: T["value"], state: TState) => { node: TState["node"] };
 }): ComponentSerde<TState> => {
   const { keys, compType, setupNode } = options;
   return {
@@ -74,10 +70,13 @@ export const genericSerde = <
     deserialize: (data: unknown, state: TState) => {
       const compData = data as Record<string, unknown>;
       const comp = compType(compData);
-      const { node } = setupNode
-        ? setupNode(comp.value, state)
-        : { node: null };
-      return { comps: [comp], node };
+      if (setupNode) {
+        const { node } = setupNode(comp.value, state);
+        if (node) {
+          state.node = node;
+        }
+      }
+      return { comps: [comp] };
     },
   };
 };

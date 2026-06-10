@@ -1,3 +1,4 @@
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 import {
   xformSerde,
@@ -9,7 +10,7 @@ import { playerSerde } from "./player/player_comp";
 import { sphereSerde } from "./sphere/sphere_comp";
 
 /** App-specific serde state shared by all component serdes. */
-export interface GameSerdeState extends NetsyncState {
+export interface GameSerdeState extends NetsyncState<TransformNode> {
   scene: Scene;
   /** Local client id (client-side only). */
   clientId?: string;
