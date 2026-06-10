@@ -1,6 +1,7 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color";
-import { genericSerde } from "@gamenet/bjs";
+import { genericSerde, type ComponentSerde } from "@gamenet/bjs";
 import { createComponent } from "@skyboxgg/bjs-ecs";
+import type { GameSerdeState } from "../serdes_config";
 import { setupPlayer } from "./player_setup";
 
 type PlayerOptions = {
@@ -17,8 +18,22 @@ export const player = createComponent(
 
 const playerNetSyncKeys = ["id", "nickname", "color"] as const;
 
-export const playerSerde = genericSerde({
-  compType: player,
-  keys: playerNetSyncKeys,
-  setupNode: setupPlayer,
-});
+const basePlayerSerde = genericSerde<ReturnType<typeof player>, GameSerdeState>(
+  {
+    compType: player,
+    keys: playerNetSyncKeys,
+    setupNode: (options, state) => setupPlayer(options, state.scene),
+  }
+);
+
+export const playerSerde: ComponentSerde<GameSerdeState> = {
+  ...basePlayerSerde,
+  deserialize: (data, state) => {
+    const result = basePlayerSerde.deserialize(data, state);
+    const playerComp = result.comps[0] as ReturnType<typeof player>;
+    if (playerComp.value.id === state.clientId) {
+      result.comps.push("me");
+    }
+    return result;
+  },
+};

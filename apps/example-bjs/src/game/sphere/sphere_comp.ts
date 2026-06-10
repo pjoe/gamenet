@@ -1,6 +1,7 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { genericSerde } from "@gamenet/bjs";
 import { createComponent } from "@skyboxgg/bjs-ecs";
+import type { GameSerdeState } from "../serdes_config";
 import { setupSphere } from "./sphere_setup";
 
 type SphereOptions = {
@@ -22,8 +23,11 @@ const sphereNetSyncKeys = [
   "specularColor",
 ] as const;
 
-export const sphereSerde = genericSerde({
+export const sphereSerde = genericSerde<
+  ReturnType<typeof sphere>,
+  GameSerdeState
+>({
   compType: sphere,
   keys: sphereNetSyncKeys,
-  setupNode: setupSphere,
+  setupNode: (options, state) => setupSphere(options, state.scene),
 });

@@ -5,14 +5,18 @@ import {
 import { Color3 } from "@babylonjs/core/Maths/math";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
-import { writeCreateEntities, writeEntity } from "@gamenet/bjs";
+import {
+  writeCreateEntities,
+  writeEntity,
+  writeUpdateEntities,
+} from "@gamenet/bjs";
 import { channelReady, GameServer } from "@gamenet/core";
 import { addNodeEntity, entityEvents } from "@skyboxgg/bjs-ecs";
 import { player } from "./player/player_comp";
 import { processPlayerInput } from "./player/player_input_system";
 import { setupPlayer } from "./player/player_setup";
 import { setupScene } from "./scene_setup";
-import { componentSerdes } from "./serdes_config";
+import { componentSerdes, type GameSerdeState } from "./serdes_config";
 
 const DEFAULT_NULL_ENGINE_OPTIONS: NullEngineOptions = {
   renderWidth: 1,
@@ -67,13 +71,15 @@ export async function setupBabylonServer() {
 
   console.debug("Babylon.js server setup complete");
 
+  const serdeState: GameSerdeState = { entity: null, node: null, scene };
+
   return {
     onGameServerReady: (gameServer: GameServer) => {
       // handle adding/removing of entities
       entityEvents.on("add", ["netsync"], (entity) => {
         gameServer.broadcast(
           "add-entity",
-          writeEntity(entity, componentSerdes),
+          writeEntity(entity, componentSerdes, serdeState),
           {
             reliable: true,
           }
@@ -97,7 +103,7 @@ export async function setupBabylonServer() {
           const node = playerNodes.get(clientId);
           processPlayerInput(node, input);
         }
-        const entities = writeCreateEntities(componentSerdes, true);
+        const entities = writeUpdateEntities(componentSerdes, serdeState);
         if (logTime >= 20) {
           // console.debug(
           //   `Broadcasting ${entities.length} entities to clients...`,
@@ -120,7 +126,7 @@ export async function setupBabylonServer() {
 
         channel.emit(
           "create-entities",
-          writeCreateEntities(componentSerdes, false),
+          writeCreateEntities(componentSerdes, serdeState),
           {
             reliable: true,
           }

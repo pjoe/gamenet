@@ -1,18 +1,20 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
 import {
+  captureSnapshots,
   readCreateEntities,
   readEntity,
+  readUpdateEntities,
   ServerEntityIdMap,
   setupReconcile,
-  storeEntityXformDiffs,
   type EntitiesSync,
+  type SerializedEntity,
 } from "@gamenet/bjs";
 import { clientReady, createSnapshotVault, GameClient } from "@gamenet/core";
-import { queryXforms, removeEntity } from "@skyboxgg/bjs-ecs";
+import { removeEntity } from "@skyboxgg/bjs-ecs";
 import { setupPlayerInput } from "./player/player_input_system";
 import { setupScene } from "./scene_setup";
-import { componentSerdes } from "./serdes_config";
+import { componentSerdes, type GameSerdeState } from "./serdes_config";
 
 export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   console.debug("Setting up Babylon.js client scene...");
@@ -41,11 +43,23 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
   gameClient.on("msg", async (data) => {
     console.debug("Received msg:", data);
   });
+  const serdeState: GameSerdeState = {
+    entity: null,
+    node: null,
+    scene,
+    clientId: gameClient.clientId,
+    vault,
+  };
   gameClient.on("create-entities", async (data) => {
-    readCreateEntities(gameClient, data, serverIdMap, componentSerdes, scene);
+    readCreateEntities(data, serverIdMap, componentSerdes, serdeState);
   });
   gameClient.on("add-entity", async (data) => {
-    readEntity(gameClient, data, serverIdMap, componentSerdes, scene);
+    readEntity(
+      data as SerializedEntity,
+      serverIdMap,
+      componentSerdes,
+      serdeState
+    );
   });
   gameClient.on("remove-entity", async (data) => {
     const e = data as { id: number };
@@ -66,14 +80,12 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
       }
       lastServerUpdateTime = data.time;
 
-      // store entitiy xform diffs
+      // apply entity update sync via serdes
       const entities = data.entities as EntitiesSync;
-      storeEntityXformDiffs(
-        entities,
-        data.time - gameClient.timeDiff,
-        vault,
-        serverIdMap
-      );
+      readUpdateEntities(entities, serverIdMap, componentSerdes, {
+        ...serdeState,
+        renderTime: data.time - gameClient.timeDiff,
+      });
     }
   );
 
@@ -96,16 +108,7 @@ export async function setupBabylonClient(gameClient: GameClient, scene: Scene) {
         lastSnapshotTime += snapshotIntervalMs;
       }
     }
-    queryXforms(["netsync"]).forEach((e) => {
-      vault.push(e.id, "xform", now, {
-        pos: e.xform.position,
-        quat:
-          e.xform.rotationQuaternion ??
-          Quaternion.FromEulerVector(e.xform.rotation),
-        linearVel: e.xform.physicsBody?.getLinearVelocity(),
-        angularVel: e.xform.physicsBody?.getAngularVelocity(),
-      });
-    });
+    captureSnapshots(componentSerdes, vault, serdeState, now);
   });
 
   // initial handshake

@@ -1,16 +1,12 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
-import { Scene } from "@babylonjs/core/scene";
-import { GameClient } from "@gamenet/core";
+import { SnapshotVault } from "@gamenet/core";
 import {
   addNodeEntity,
   Comp,
-  createComponent,
   Entity,
   queryXforms,
   xform,
 } from "@skyboxgg/bjs-ecs";
-import { ComponentSerde } from "./serde";
+import { ComponentSerde, NetsyncState } from "./serde";
 
 export type SerializedEntity = {
   id: number;
@@ -18,117 +14,34 @@ export type SerializedEntity = {
   [key: string]: unknown;
 };
 export type EntitiesSync = SerializedEntity[];
-export type XformSyncData = {
-  pos: Vector3;
-  quat: Quaternion;
-  linearVel?: Vector3;
-  angularVel?: Vector3;
-  /** Server time (ms) of the last teleport for this xform, if any. */
-  teleportTime?: number;
-};
 
-export function serializeXformSyncData(data: XformSyncData): number[] {
-  const arr = [
-    (data.linearVel ? 1 : 0) |
-      (data.angularVel ? 2 : 0) |
-      (data.teleportTime ? 4 : 0),
-    data.pos.x,
-    data.pos.y,
-    data.pos.z,
-    data.quat.x,
-    data.quat.y,
-    data.quat.z,
-    data.quat.w,
-  ];
-  if (data.linearVel) {
-    arr.push(data.linearVel.x, data.linearVel.y, data.linearVel.z);
-  }
-  if (data.angularVel) {
-    arr.push(data.angularVel.x, data.angularVel.y, data.angularVel.z);
-  }
-  if (data.teleportTime) {
-    arr.push(data.teleportTime);
-  }
-  return arr;
-}
-
-export function deserializeXformSyncData(arr: number[]): XformSyncData {
-  const flags = arr[0];
-  const data: XformSyncData = {
-    pos: new Vector3(arr[1], arr[2], arr[3]),
-    quat: new Quaternion(arr[4], arr[5], arr[6], arr[7]),
-  };
-  let index = 8;
-  if (flags & 1) {
-    data.linearVel = new Vector3(arr[index], arr[index + 1], arr[index + 2]);
-    index += 3;
-  }
-  if (flags & 2) {
-    data.angularVel = new Vector3(arr[index], arr[index + 1], arr[index + 2]);
-    index += 3;
-  }
-  if (flags & 4) {
-    data.teleportTime = arr[index];
-  }
-  return data;
-}
-
-export const xformSync = createComponent(
-  "xformSync",
-  (init: { diff: XformSyncData; lastTeleportTime?: number }) => ({
-    diff: init.diff,
-    lastTeleportTime: init.lastTeleportTime ?? 0,
-  })
-);
-
-/**
- * Mark the given transform node as having teleported at `time` (ms).
- * The next networked update will carry this `teleportTime`, allowing
- * clients to snap the entity instead of interpolating toward the new state.
- */
-export function markXformTeleport(
-  node: TransformNode,
-  time: number = Date.now()
-): void {
-  if (!node.metadata) {
-    node.metadata = {};
-  }
-  (node.metadata as { teleportTime?: number }).teleportTime = time;
-}
-
-export function writeEntity(
+export function writeEntity<TState extends NetsyncState>(
   e: Entity<["netsync"]>,
-  registry: Record<string, ComponentSerde>,
+  registry: Record<string, ComponentSerde<TState>>,
+  state: TState,
   isUpdate = false
 ): SerializedEntity {
   let name = "nameless";
+  const xformComp = e.comps.xform as ReturnType<typeof xform> | undefined;
+  const entityState: TState = {
+    ...state,
+    entity: e,
+    node: xformComp?.value ?? null,
+  };
   const comps: Record<string, unknown> = {};
   for (const [key, comp] of Object.entries(e.comps)) {
-    let compData: unknown = undefined;
-    if (key in registry && !isUpdate) {
-      compData = registry[key].serialize(comp);
-    }
     if (key === "xform") {
-      const xformVal = (comp as ReturnType<typeof xform>).value;
-      name = xformVal.name;
-      const xformData: XformSyncData = {
-        pos: xformVal.position,
-        quat:
-          xformVal.rotationQuaternion ??
-          Quaternion.FromEulerVector(xformVal.rotation),
-        linearVel: xformVal.physicsBody?.getLinearVelocity(),
-        angularVel: xformVal.physicsBody?.getAngularVelocity(),
-      };
-      const teleportTime = (
-        xformVal.metadata as { teleportTime?: number } | null
-      )?.teleportTime;
-      if (teleportTime !== undefined) {
-        xformData.teleportTime = teleportTime;
-      }
-      compData = serializeXformSyncData(xformData);
+      name = (comp as ReturnType<typeof xform>).value.name;
+    }
+    const serde = registry[key];
+    let compData: unknown = undefined;
+    if (serde) {
+      compData = isUpdate
+        ? serde.serializeUpdate?.(comp, entityState)
+        : serde.serialize(comp, entityState);
     }
     if (compData !== undefined || !isUpdate) {
-      // skip tag comps for updates to minimize bandwidth
+      // skip comps without update data to minimize bandwidth
       comps[key] = compData ?? true;
     }
   }
@@ -139,23 +52,29 @@ export function writeEntity(
   return { id: e.id, name, ...comps };
 }
 
-export function writeCreateEntities(
-  registry: Record<string, ComponentSerde>,
-  isUpdate = false
+export function writeCreateEntities<TState extends NetsyncState>(
+  registry: Record<string, ComponentSerde<TState>>,
+  state: TState
 ): EntitiesSync {
   const entities = queryXforms(["netsync"]);
-  const data = entities.map((e) => writeEntity(e, registry, isUpdate));
-  return data;
+  return entities.map((e) => writeEntity(e, registry, state));
+}
+
+export function writeUpdateEntities<TState extends NetsyncState>(
+  registry: Record<string, ComponentSerde<TState>>,
+  state: TState
+): EntitiesSync {
+  const entities = queryXforms(["netsync"]);
+  return entities.map((e) => writeEntity(e, registry, state, true));
 }
 
 export type ServerEntityIdMap = Map<number, Entity<["netsync"]>>;
 
-export function readEntity(
-  gameClient: GameClient,
+export function readEntity<TState extends NetsyncState>(
   e: SerializedEntity,
   idMap: ServerEntityIdMap,
-  registry: Record<string, ComponentSerde>,
-  scene: Scene
+  registry: Record<string, ComponentSerde<TState>>,
+  state: TState
 ) {
   const comps: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(e)) {
@@ -166,67 +85,97 @@ export function readEntity(
     `Creating entity serverId:${e.id} (${e.name}) with comps:`,
     comps
   );
-  let xformNode: TransformNode | null = null;
+  const entityState: TState = { ...state, entity: null, node: null };
   const compsToAdd: (Comp | string)[] = ["netsync"];
 
-  for (const [key, val] of Object.entries(comps)) {
-    if (key in registry && val) {
-      const { comp, node } = registry[key].deserialize(val, scene);
-      if (comp) {
-        compsToAdd.push(comp);
-        if (node) {
-          xformNode = node;
-        }
-        if (key === "player" && comp.value.id === gameClient.clientId) {
-          compsToAdd.push("me");
-        }
+  for (const [key, val] of Object.entries(comps)
+    .filter(([key]) => key in registry)
+    // Sort so that components that create nodes are deserialized first
+    .sort(([a], [b]) =>
+      registry[a].createsNode === registry[b].createsNode
+        ? 0
+        : registry[a].createsNode
+          ? -1
+          : 1
+    )) {
+    if (val) {
+      const { comps: newComps, node } = registry[key].deserialize(
+        val,
+        entityState
+      );
+      compsToAdd.push(...newComps);
+      if (node) {
+        entityState.node = node;
       }
     }
   }
 
-  // xform
+  const xformNode = entityState.node;
   if (xformNode) {
-    if (comps.xform) {
-      const xformComp = deserializeXformSyncData(comps.xform as number[]);
-      xformNode.position.copyFrom(xformComp.pos);
-      xformNode.rotationQuaternion = new Quaternion().copyFrom(xformComp.quat);
-      if (xformNode.physicsBody) {
-        if (xformComp.linearVel) {
-          xformNode.physicsBody.setLinearVelocity(xformComp.linearVel);
-        }
-        if (xformComp.angularVel) {
-          xformNode.physicsBody.setAngularVelocity(xformComp.angularVel);
-        }
-      }
-    }
-    // add xform sync comp
-    compsToAdd.push(
-      xformSync({
-        diff: {
-          pos: Vector3.Zero(),
-          quat: Quaternion.Identity(),
-          linearVel: Vector3.Zero(),
-          angularVel: Vector3.Zero(),
-        },
-        lastTeleportTime:
-          (comps.xform as XformSyncData | undefined)?.teleportTime ?? 0,
-      })
-    );
     const entity =
-      xformNode?.metadata?.entity ?? addNodeEntity(xformNode, compsToAdd);
+      xformNode.metadata?.entity ?? addNodeEntity(xformNode, compsToAdd);
     idMap.set(Number(e.id), entity);
   }
 }
 
-export function readCreateEntities(
-  gameClient: GameClient,
+export function readCreateEntities<TState extends NetsyncState>(
   data: unknown,
   idMap: ServerEntityIdMap,
-  registry: Record<string, ComponentSerde>,
-  scene: Scene
+  registry: Record<string, ComponentSerde<TState>>,
+  state: TState
 ) {
   const entities = data as SerializedEntity[];
   entities
     .filter((e) => !idMap.has(e.id)) // skip existing entitites
-    .forEach((e) => readEntity(gameClient, e, idMap, registry, scene));
+    .forEach((e) => readEntity(e, idMap, registry, state));
+}
+
+export function readUpdateEntities<TState extends NetsyncState>(
+  entities: EntitiesSync,
+  idMap: ServerEntityIdMap,
+  registry: Record<string, ComponentSerde<TState>>,
+  state: TState
+) {
+  for (const e of entities) {
+    const entity = idMap.get(e.id);
+    if (!entity) continue;
+    const xformComp = entity.comps.xform as
+      | ReturnType<typeof xform>
+      | undefined;
+    const entityState: TState = {
+      ...state,
+      entity,
+      node: xformComp?.value ?? null,
+    };
+    for (const [key, val] of Object.entries(e)) {
+      if (key === "id" || key === "name") continue;
+      registry[key]?.applyUpdate?.(val, entityState);
+    }
+  }
+}
+
+/**
+ * Push snapshots for all netsync entities into the vault, using each
+ * registered serde's `captureSnapshot` hook (keyed by component name).
+ */
+export function captureSnapshots<TState extends NetsyncState>(
+  registry: Record<string, ComponentSerde<TState>>,
+  vault: SnapshotVault,
+  state: TState,
+  now: number = Date.now()
+) {
+  queryXforms(["netsync"]).forEach((e) => {
+    const xformComp = e.comps.xform as ReturnType<typeof xform> | undefined;
+    const entityState: TState = {
+      ...state,
+      entity: e,
+      node: xformComp?.value ?? null,
+    };
+    for (const [key, comp] of Object.entries(e.comps)) {
+      const values = registry[key]?.captureSnapshot?.(comp, entityState);
+      if (values !== undefined) {
+        vault.push(e.id, key, now, values);
+      }
+    }
+  });
 }
