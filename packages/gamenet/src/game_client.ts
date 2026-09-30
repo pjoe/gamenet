@@ -42,10 +42,12 @@ export interface JoinGameArgs {
   nickname?: string;
   extraLatency?: number;
   payloadSerde?: PayloadSerde;
+  iceServers?: RTCIceServer[];
   createAdapterSession?: (args: {
     clientId: string;
     serverId: string;
     nickname?: string;
+    iceServers?: RTCIceServer[];
   }) => ClientAdapterSession;
 }
 
@@ -61,11 +63,13 @@ export async function joinGame(args: JoinGameArgs): Promise<GameClient> {
       clientId,
       serverId: args.serverId,
       nickname,
+      iceServers: args.iceServers,
     }) ??
     createClientWebRTCAdapterSession({
       clientId,
       serverId: args.serverId,
       nickname,
+      iceServers: args.iceServers,
     });
   const emitter = mitt<Events>();
   const wildcardHandlers = new Set<(type: string, data: any) => void>();

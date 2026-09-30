@@ -65,6 +65,33 @@ pnpm run lint
 pnpm run format:check
 ```
 
+## Configuring ICE Servers
+
+Pass `iceServers` to `hostGame()` or `joinGame()` to use your own STUN/TURN servers:
+
+```ts
+import { hostGame, joinGame } from "@gamenet/core";
+
+const iceServers: RTCIceServer[] = [
+  { urls: "stun:stun.example.com:3478" },
+  {
+    urls: "turn:turn.example.com:3478",
+    username: "player",
+    credential: "short-lived-turn-credential",
+  },
+];
+
+// On the host:
+const server = await hostGame({ iceServers });
+
+// On a joining client, using the host's serverId:
+const client = await joinGame({ serverId: server.serverId, iceServers });
+```
+
+The supplied list replaces the default Google STUN server (`stun:stun.l.google.com:19302`). Omit `iceServers` to keep that default, or pass `[]` to use no configured STUN/TURN servers. Each side configures its own peer connections independently; ICE server credentials are not sent through signaling.
+
+The option is also forwarded to injected `createAdapterManager` / `createAdapterSession` factories. For custom topologies (such as worker-hosted games where WebRTC runs on the main thread), pass it to `createServerWebRTCAdapterManager()` or `createClientWebRTCAdapterSession()` wherever the WebRTC transport is created. Non-WebRTC transports can ignore it.
+
 ## Architecture
 
 GameNet bootstraps sessions via a pluggable signal server, then establishes WebRTC peer connections for game traffic. Messages flow over two data channels (`reliable` and `unreliable`) using `{ t, data }` envelopes.

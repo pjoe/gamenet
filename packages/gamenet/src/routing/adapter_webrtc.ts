@@ -45,6 +45,7 @@ export interface CreateClientWebRTCAdapterSessionArgs {
   clientId: string;
   serverId: string;
   nickname?: string;
+  iceServers?: RTCIceServer[];
   signalServer?: SignalServer;
 }
 
@@ -65,6 +66,7 @@ export interface ServerWebRTCAdapterManager extends ServerAdapterManager<ServerW
 
 export interface CreateServerWebRTCAdapterManagerArgs {
   serverId: string;
+  iceServers?: RTCIceServer[];
   signalServer?: SignalServer;
 }
 
@@ -271,7 +273,8 @@ export function createClientWebRTCAdapterSession(
         peerConn = createPeerConn(
           { send: sendSignal },
           args.clientId,
-          args.serverId
+          args.serverId,
+          args.iceServers
         );
         peerConn.onConnected = (peer) => {
           signalServer.unsubscribe();
@@ -387,7 +390,8 @@ export function createServerWebRTCAdapterManager(
         const peer = createPeerConn(
           { send: sendSignal },
           args.serverId,
-          remoteId
+          remoteId,
+          args.iceServers
         );
         peerConns.set(remoteId, peer);
 

@@ -275,7 +275,7 @@ Wildcard handlers (`"*"`) are supported on both host `Channel` and client `GameC
 
 1. **Signal transport**: implement `SignalServer` and call `selectSignalServer(...)`.
 2. **Message encoding**: replace JSON envelopes with binary codecs (see `msgpack.ts` prototype).
-3. **ICE config**: extend `iceServers` in `peer_conn.ts` for NAT traversal.
+3. **ICE config**: pass optional `iceServers: RTCIceServer[]` to `hostGame()` / `joinGame()` or the WebRTC adapter factories for NAT traversal. Supplied lists replace the default Google STUN server; `[]` disables configured STUN/TURN servers. Configuration stays local to each peer and is forwarded to injected transport factories.
 4. **Custom adapter sessions**: inject `createAdapterSession` into `joinGame()` or `createAdapterManager` into `hostGame()` for non-WebRTC transports.
 5. **Worker-hosted server**: use `setupHostServerWorker` from `@gamenet/core/worker-setup` to run game logic in a Web Worker, with the main thread handling WebRTC negotiation and routing.
 

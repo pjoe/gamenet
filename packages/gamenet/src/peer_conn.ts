@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 //TODO: maybe use https://github.com/pradt2/always-online-stun
-const iceServers: RTCIceServer[] = [
+const defaultIceServers: RTCIceServer[] = [
   {
     urls: "stun:stun.l.google.com:19302",
   },
@@ -29,7 +29,8 @@ export interface PeerConn {
 export function createPeerConn(
   signaling: Signaling,
   localId: string,
-  remoteId: string
+  remoteId: string,
+  iceServers: RTCIceServer[] = defaultIceServers
 ): PeerConn {
   const incomingIceCandidates: RTCIceCandidate[] = [];
   let didEmitConnected = false;

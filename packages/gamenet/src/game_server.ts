@@ -47,7 +47,11 @@ export interface GameServer {
 export interface HostGameArgs {
   serverId?: string;
   payloadSerde?: PayloadSerde;
-  createAdapterManager?: (args: { serverId: string }) => ServerAdapterManager;
+  iceServers?: RTCIceServer[];
+  createAdapterManager?: (args: {
+    serverId: string;
+    iceServers?: RTCIceServer[];
+  }) => ServerAdapterManager;
 }
 
 export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
@@ -55,8 +59,8 @@ export async function hostGame(args: HostGameArgs = {}): Promise<GameServer> {
   const payloadSerde = args.payloadSerde ?? defaultPayloadSerde;
   let onConnectionHandler: (channel: Channel) => void;
   const manager =
-    args.createAdapterManager?.({ serverId }) ??
-    createServerWebRTCAdapterManager({ serverId });
+    args.createAdapterManager?.({ serverId, iceServers: args.iceServers }) ??
+    createServerWebRTCAdapterManager({ serverId, iceServers: args.iceServers });
   const router = createRouter(serverId);
   const channels = new Map<string, Channel>();
   const clientsPingListInterval = setInterval(() => {
