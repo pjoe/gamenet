@@ -39,7 +39,7 @@ export function createPeerConn(
 
   const onDcOpen = (ev: Event) => {
     const dc = ev.target as RTCDataChannel;
-    console.log("dc.onopen", dc);
+    console.debug("dc.onopen", dc);
     if (
       !didEmitConnected &&
       peerConn.dc &&
@@ -53,11 +53,22 @@ export function createPeerConn(
     }
   };
 
-  pc.onnegotiationneeded = (ev) => console.log("onnegotiationneeded", ev);
-  pc.onconnectionstatechange = () =>
-    console.log("onconnectionstatechange", pc.connectionState);
+  pc.onnegotiationneeded = (ev) => console.debug("onnegotiationneeded", ev);
+  pc.onconnectionstatechange = () => {
+    console.debug("onconnectionstatechange", pc.connectionState);
+    if (pc.connectionState === "connected") {
+      // log chosen ice candidate
+      const pair = pc.sctp?.transport?.iceTransport?.getSelectedCandidatePair();
+      if (pair) {
+        console.debug(
+          "Remote ice candidate:",
+          `${pair.remote.protocol} ${pair.remote.address}:${pair.remote.port}`
+        );
+      }
+    }
+  };
   pc.ondatachannel = (ev) => {
-    console.log("ondatachannel", ev);
+    console.debug("ondatachannel", ev);
     const dc = ev.channel;
     dc.binaryType = "arraybuffer";
     dc.onopen = onDcOpen;
@@ -110,13 +121,13 @@ export function createPeerConn(
       peerConn.dc.binaryType = "arraybuffer";
       peerConn.dc.onopen = onDcOpen;
       const offer = await pc.createOffer();
-      console.log("offer", offer);
+      console.debug("offer", offer);
       await pc.setLocalDescription(offer);
       signaling.send(remoteId, "offer", pc.localDescription);
     },
 
     async incomingOffer(msg: any) {
-      console.log("incomingOffer", msg);
+      console.debug("incomingOffer", msg);
       pc.setRemoteDescription(msg.data);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -124,7 +135,7 @@ export function createPeerConn(
     },
 
     incomingAnswer(msg: any) {
-      console.log("incomingAnswer", msg);
+      console.debug("incomingAnswer", msg);
       pc.setRemoteDescription(msg.data);
       for (const candidate of incomingIceCandidates) {
         pc.addIceCandidate(candidate);
@@ -133,7 +144,7 @@ export function createPeerConn(
     },
 
     incomingCandidate(msg: any) {
-      console.log("incomingCandidate", msg);
+      console.debug("incomingCandidate", msg);
       if (pc.remoteDescription) {
         pc.addIceCandidate(msg.data);
       } else {
