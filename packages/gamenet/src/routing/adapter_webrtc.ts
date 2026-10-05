@@ -1,8 +1,5 @@
-import {
-  decode as decodeMsgpack,
-  encode as encodeMsgpack,
-} from "@msgpack/msgpack";
 import { createPeerConn, PeerConn } from "../peer_conn";
+import { defaultPayloadSerde } from "../serde";
 import { getSignalServer, SignalServer } from "../signal_server";
 import {
   Adapter,
@@ -85,7 +82,7 @@ function encodeRoutingWireMessage(message: Message): ArrayBuffer {
     reliable: message.reliable,
     data: new Uint8Array(message.data),
   };
-  return toArrayBuffer(encodeMsgpack(payload));
+  return defaultPayloadSerde.encode(payload);
 }
 
 function decodeRoutingWireMessage(
@@ -93,8 +90,8 @@ function decodeRoutingWireMessage(
   fallbackReliable: boolean
 ): Message | undefined {
   try {
-    const decoded = decodeMsgpack(
-      new Uint8Array(payload)
+    const decoded = defaultPayloadSerde.decode(
+      payload
     ) as Partial<RoutingWireMessage>;
     let decodedData: ArrayBuffer | undefined;
     const decodedWireData = decoded.data as unknown;
