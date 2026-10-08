@@ -1,16 +1,14 @@
+import { createHostChannelId } from "./channel";
+import { joinGame, MessageStatsEvent } from "./game_client";
 import {
   Adapter,
   ClientAdapterSession,
-  createHostChannelId,
-  createRouter,
-  createServerWebRTCAdapterManager,
   createWorkerAdapter,
-  joinGame,
-  Message,
   MessageEnvelope,
-  MessageStatsEvent,
-  Router,
-} from "@gamenet/core";
+} from "./routing/adapter";
+import { createServerWebRTCAdapterManager } from "./routing/adapter_webrtc";
+import { Message } from "./routing/message";
+import { createRouter, Router } from "./routing/router";
 
 const WORKER_SERVER_ID = "host-worker";
 
