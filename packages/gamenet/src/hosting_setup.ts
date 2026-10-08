@@ -256,13 +256,13 @@ export async function setupHosting(args: { nickname: string; worker: Worker }) {
   return {
     gameClient: hostClient,
     serverId,
-    onServerMessageStats(handler: (event: MessageStatsEvent) => void) {
+    onServerMessageStats: (handler: (event: MessageStatsEvent) => void) => {
       serverStatsHandlers.add(handler);
       return () => {
         serverStatsHandlers.delete(handler);
       };
     },
-    dispose() {
+    dispose: () => {
       router.adapters.delete(workerAdapter.id);
       args.worker.terminate();
       manager.dispose();
