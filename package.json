@@ -15,6 +15,8 @@
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "release": "node scripts/release.mjs",
+    "test:release": "node --test scripts/release.test.mjs",
     "local-server": "tsx packages/gamenet/src/signal_server_local_server.ts",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
