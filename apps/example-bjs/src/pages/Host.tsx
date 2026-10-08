@@ -1,4 +1,4 @@
-import { setupHosting } from "@gamenet/bjs";
+import { setupHosting } from "@gamenet/core";
 import { useGame } from "@gamenet/core/react";
 import { ActionButton, Card, FormField, PageLayout } from "@gamenet/example-ui";
 import { useState } from "react";

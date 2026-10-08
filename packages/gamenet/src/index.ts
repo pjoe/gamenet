@@ -7,6 +7,9 @@
 export * from "./game_client";
 export * from "./game_server";
 
+// Hosting setup helper
+export { setupHosting } from "./hosting_setup";
+
 // Handshake
 export { channelReady, clientReady } from "./handshake";
 
