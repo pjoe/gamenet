@@ -23,6 +23,23 @@ export async function createHostChannelId(): Promise<string> {
   return ((upper << 6) | hash).toString().padStart(7, "0");
 }
 
+/**
+ * Checks the 7-digit format, 23-bit range, and hash of a host channel ID.
+ * Does not check whether the host exists or whether the ID has expired.
+ */
+export async function validateHostChannelId(id: string): Promise<boolean> {
+  if (id.length !== 7 || !/^\d{7}$/.test(id)) return false;
+
+  const value = Number(id);
+  if (value > 0x7fffff) return false;
+
+  const upper = value >>> 6;
+  const buf = new TextEncoder().encode(salt + upper.toString());
+  const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+  const hash = new Uint8Array(hashBuf)[0] & 0x3f;
+  return (value & 0x3f) === hash;
+}
+
 export function createClientChannelId(): string {
   return nanoid(21);
 }

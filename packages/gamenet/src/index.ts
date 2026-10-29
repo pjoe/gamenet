@@ -20,7 +20,11 @@ export { createLocalSignalServer } from "./signal_server_local";
 export { createMqttSignalServer } from "./signal_server_mqtt";
 
 // Channel utilities
-export { createClientChannelId, createHostChannelId } from "./channel";
+export {
+  createClientChannelId,
+  createHostChannelId,
+  validateHostChannelId,
+} from "./channel";
 
 // Serialization
 export { createJsonPayloadSerde, createMsgpackPayloadSerde } from "./serde";

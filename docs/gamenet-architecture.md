@@ -24,7 +24,8 @@ Signal server selection is the consuming app's responsibility — the library ex
   - Re-exports `game_server` and `game_client` APIs.
   - Exports signal server factories (`createMqttSignalServer`, `createLocalSignalServer`) and `selectSignalServer()`.
   - Exports routing types and functions (`Adapter`, `Router`, `createRouter`, `createWorkerAdapter`, `createServerWebRTCAdapterManager`, etc.).
-  - Exports channel utilities (`createHostChannelId`, `createClientChannelId`).
+  - Exports channel utilities (`createHostChannelId`, `createClientChannelId`, `validateHostChannelId`).
+  - `validateHostChannelId(id)` returns `Promise<boolean>`, checking the exact 7-digit format, 23-bit range, and embedded hash. It does not check host availability or expiry; the 6-bit hash is a checksum, not authentication.
   - Exports telemetry types (`ClientsPingListPayload`, `ClientsPingListEntry`).
   - Exports serialization (`PayloadSerde`, `createJsonPayloadSerde`, `createMsgpackPayloadSerde`).
 
