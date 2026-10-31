@@ -1,3 +1,4 @@
+import { sha256 } from "js-sha256";
 import { nanoid } from "nanoid";
 
 export const salt = "f00Bar!";
@@ -18,8 +19,9 @@ export async function createHostChannelId(): Promise<string> {
   const ms = now & 0x3f;
   const upper = (random << 9) | (hour << 6) | ms;
   const buf = new TextEncoder().encode(salt + upper.toString());
-  const hashBuf = await crypto.subtle.digest("SHA-256", buf);
-  const hash = new Uint8Array(hashBuf)[0] & 0x3f;
+  const hasher = sha256.create();
+  hasher.update(buf);
+  const hash = hasher.digest()[0] & 0x3f;
   return ((upper << 6) | hash).toString().padStart(7, "0");
 }
 
@@ -35,8 +37,10 @@ export async function validateHostChannelId(id: string): Promise<boolean> {
 
   const upper = value >>> 6;
   const buf = new TextEncoder().encode(salt + upper.toString());
-  const hashBuf = await crypto.subtle.digest("SHA-256", buf);
-  const hash = new Uint8Array(hashBuf)[0] & 0x3f;
+  const hasher = sha256.create();
+  hasher.update(buf);
+  const hash = hasher.digest()[0] & 0x3f;
+
   return (value & 0x3f) === hash;
 }
 

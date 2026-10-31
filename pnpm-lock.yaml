@@ -190,6 +190,9 @@ importers:
       cbor-x:
         specifier: ^1.6.4
         version: 1.6.4
+      js-sha256:
+        specifier: ^1.0.0
+        version: 1.0.0
       mitt:
         specifier: ^3.0.1
         version: 3.0.1
@@ -2608,6 +2611,9 @@ packages:
 
   js-sdsl@4.3.0:
     resolution: {integrity: sha512-mifzlm2+5nZ+lEcLJMoBK0/IH/bDg8XnJfd/Wq6IP+xoCjLZsTOnV2QpxlVbX9bMnkl5PdEjNtBJ9Cj1NjifhQ==}
+
+  js-sha256@1.0.0:
+    resolution: {integrity: sha512-Bqxf6ENUzYIMzuELCmRNrJOVbjKH1oMgbfYJBKVr/W1Xf9fazpahqCbb24v1pR7XV1isuqhM+w9KWpK7zCyUQw==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -6599,6 +6605,8 @@ snapshots:
   jiti@2.7.0: {}
 
   js-sdsl@4.3.0: {}
+
+  js-sha256@1.0.0: {}
 
   js-tokens@4.0.0: {}
 
